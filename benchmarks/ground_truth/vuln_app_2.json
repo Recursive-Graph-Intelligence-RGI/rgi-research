@@ -1,6 +1,31 @@
-{"vulns": [
-  {"id": "V6-sql-injection", "terms": ["sql injection", "f-string", "injection"]},
-  {"id": "V7-path-traversal", "terms": ["traversal", "path"]},
-  {"id": "V8-weak-crypto-md5", "terms": ["md5", "weak"]},
-  {"id": "V9-command-injection", "terms": ["command injection", "os.system"]}
-]}
+{
+  "vulns": [
+    {
+      "id": "V6-sql-injection",
+      "terms": [
+        "sql injection",
+        "f-string",
+        "injection"
+      ]
+    },
+    {
+      "id": "V7-path-traversal",
+      "terms": [
+        "traversal"
+      ]
+    },
+    {
+      "id": "V8-weak-crypto-md5",
+      "terms": [
+        "md5"
+      ]
+    },
+    {
+      "id": "V9-command-injection",
+      "terms": [
+        "command injection",
+        "os.system"
+      ]
+    }
+  ]
+}
