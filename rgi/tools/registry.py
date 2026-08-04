@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 
 _SECRET_RE = re.compile(
-    r"""(?P<name>[A-Z_]*(?:SECRET|API_KEY|TOKEN|PASSWORD)[A-Z_]*)\s*=\s*["'](?P<value>[^"']{6,})["']"""
+    r"""(?P<name>[A-Z_]*(?:SECRET|API_KEY|TOKEN|PASSWORD|DATABASE_URL)[A-Z_]*)\s*=\s*["'](?P<value>[^"']{6,})["']"""
 )
 
 
