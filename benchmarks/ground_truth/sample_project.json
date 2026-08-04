@@ -1,0 +1,7 @@
+{"vulns": [
+  {"id": "V1-jwt-no-expiry", "terms": ["expir", "jwt_decode_without_exp_check"]},
+  {"id": "V2-weak-secret", "terms": ["secret"]},
+  {"id": "V3-session-no-timeout", "terms": ["session"]},
+  {"id": "V4-plaintext-password", "terms": ["password", "plaintext"]},
+  {"id": "V5-hardcoded-api-key", "terms": ["api_key"]}
+]}
