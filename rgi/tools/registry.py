@@ -46,8 +46,10 @@ class ToolRegistry:
             imports.extend(
                 a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names
             )
+        source_excerpt = _read_source(params["path"])[:4000]
         return {
-            "findings": [{"classes": classes, "functions": functions, "imports": imports}],
+            "findings": [{"classes": classes, "functions": functions,
+                          "imports": imports, "source_excerpt": source_excerpt}],
             "confidence": 1.0,
         }
 

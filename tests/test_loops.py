@@ -21,9 +21,11 @@ def test_execution_initializer_picks_jwt_tool():
     g = _graph(LoopType.EXECUTION)
     initialize_graph_nodes(g, {"objective": "JWT Security Analysis", "target_path": "./sample_project"})
     tools = [n for n in g.nodes.values() if n.type == NodeType.TOOL]
-    assert tools[0].metadata["tool"] == "check_jwt_usage"
+    tool_names = {t.metadata["tool"] for t in tools}
+    assert "check_jwt_usage" in tool_names
+    assert "parse_python_file" in tool_names  # always-on: reasoning must see code
     flow = [e for e in g.edges if e.edge_type == "flow"]
-    assert len(flow) == 1  # tool -> reasoning
+    assert len(flow) == 2  # both tools -> reasoning
 
 
 def test_verification_initializer_builds_evidence():

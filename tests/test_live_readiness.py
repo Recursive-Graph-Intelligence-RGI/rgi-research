@@ -70,7 +70,8 @@ async def test_raising_child_does_not_lose_sibling_merges():
     children = [h.get_graph(s) for s in done.subgraph_ids]
     jwt_child = next(c for c in children if "JWT" in c.state.objective)
     session_child = next(c for c in children if "Session" in c.state.objective)
-    jwt_tool = next(n for n in jwt_child.nodes.values() if n.type == NodeType.TOOL)
+    jwt_tool = next(n for n in jwt_child.nodes.values()
+                    if n.type == NodeType.TOOL and n.metadata["tool"] == "check_jwt_usage")
     assert jwt_tool.state == NodeState.FAILED
     assert session_child.state.status == "completed"
     assert done.memory_snapshot.get("merged_findings")

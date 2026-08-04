@@ -245,6 +245,7 @@ def should_spawn_subgraphs(graph: CognitiveGraph) -> bool:
     return any(
         n.type == NodeType.REASONING
         and n.state == NodeState.COMPLETED
+        and n.confidence >= graph.state.confidence_threshold
         and isinstance(n.result, dict)
         and n.result.get("suggested_subgraphs")
         and not n.metadata.get("spawn_consumed")
@@ -256,6 +257,7 @@ def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[di
     suggestions = list(graph.memory_snapshot.pop("spawn_suggestions", []))
     for n in graph.nodes.values():
         if (n.type == NodeType.REASONING and n.state == NodeState.COMPLETED
+                and n.confidence >= graph.state.confidence_threshold
                 and isinstance(n.result, dict) and n.result.get("suggested_subgraphs")
                 and not n.metadata.get("spawn_consumed")):
             suggestions.extend(n.result["suggested_subgraphs"])
@@ -263,7 +265,7 @@ def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[di
     return [
         {"loop_type": LoopType.EXECUTION, "objective": s,
          "reason": "decomposition", "target_path": harness.config.target_path}
-        for s in suggestions
+        for s in suggestions[:3]
     ]
 
 
@@ -273,7 +275,8 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
         parent.memory_snapshot.setdefault("merged_findings", []).extend(
             {"from_graph": child.id, **f} for f in findings)
     suggestions = [
-        s for n in child.nodes.values() if isinstance(n.result, dict)
+        s for n in child.nodes.values()
+        if isinstance(n.result, dict) and n.confidence >= child.state.confidence_threshold
         for s in n.result.get("suggested_subgraphs", [])
     ]
     if suggestions:

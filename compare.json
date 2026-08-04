@@ -4,7 +4,7 @@
   "rgi": {
     "objective": "Analyze authentication security",
     "status": "completed",
-    "aggregate_confidence": 0.842,
+    "aggregate_confidence": 0.891,
     "corrections_made": 1,
     "graphs_spawned": 5,
     "max_depth_reached": 2,
@@ -12,171 +12,225 @@
     "findings": [
       {
         "graph": "Analyze authentication security",
-        "from_graph": "7a7724e6",
+        "from_graph": "be343456",
+        "finding": {
+          "classes": [
+            "JWTManager",
+            "LoginHandler",
+            "SessionStore"
+          ],
+          "functions": [
+            "__init__",
+            "create_token",
+            "decode_token",
+            "__init__",
+            "check_password",
+            "__init__",
+            "create_session",
+            "validate_session"
+          ],
+          "imports": [
+            "jwt"
+          ],
+          "source_excerpt": "\"\"\"JWT handling with intentional vulnerabilities.\"\"\"\nimport jwt\n\nSECRET_KEY = \"supersecret123\"  # hardcoded weak secret\n\n\nclass JWTManager:\n    def __init__(self):\n        self.secret = SECRET_KEY\n\n    def create_token(self, user_id):\n        # VULNERABILITY: no 'exp' claim \u2014 tokens never expire\n        return jwt.encode({\"user_id\": user_id}, self.secret, algorithm=\"HS256\")\n\n    def decode_token(self, token):\n        # VULNERABILITY: no expiration verification, HS256 only\n        return jwt.decode(token, self.secret, algorithms=[\"HS256\"])\n\n\"\"\"Configuration with hardcoded secrets.\"\"\"\nAPI_KEY = \"sk-live-abcdef1234567890\"\nDATABASE_URL = \"postgres://admin:password123@db.internal:5432/prod\"\n\n\"\"\"Password checking without hashing.\"\"\"\nfrom config import API_KEY  # noqa: F401  (unused import of secret-bearing module)\n\n\nclass LoginHandler:\n    def __init__(self, user_db):\n        self.user_db = user_db\n\n    def check_password(self, username, provided_password):\n        # VULNERABILITY: plaintext password comparison\n        stored = self.user_db.get(username)\n        return stored == provided_password\n\n\"\"\"Session management without timeout.\"\"\"\n\n\nclass SessionStore:\n    def __init__(self):\n        self.sessions = {}\n\n    def create_session(self, user_id):\n        # VULNERABILITY: session has no expiry timestamp\n        session_id = f\"sess_{user_id}_{len(self.sessions)}\"\n        self.sessions[session_id] = {\"user_id\": user_id}\n        return session_id\n\n    def validate_session(self, session_id):\n        # VULNERABILITY: no age check \u2014 sessions live forever\n        return session_id in self.sessions\n"
+        },
+        "confidence": 1.0,
+        "node": "449e46e6"
+      },
+      {
+        "graph": "Analyze authentication security",
+        "from_graph": "be343456",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "a7b4274e"
+        "node": "74679af5"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "7a7724e6",
+        "from_graph": "be343456",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "a7b4274e"
+        "node": "74679af5"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "7a7724e6",
+        "from_graph": "be343456",
         "finding": "JWT handling may be missing expiration verification",
-        "confidence": 0.8400000000000001,
-        "node": "2bf8c1f9"
+        "confidence": 0.8933333333333334,
+        "node": "e6227063"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
+        "finding": {
+          "classes": [
+            "JWTManager",
+            "LoginHandler",
+            "SessionStore"
+          ],
+          "functions": [
+            "__init__",
+            "create_token",
+            "decode_token",
+            "__init__",
+            "check_password",
+            "__init__",
+            "create_session",
+            "validate_session"
+          ],
+          "imports": [
+            "jwt"
+          ],
+          "source_excerpt": "\"\"\"JWT handling with intentional vulnerabilities.\"\"\"\nimport jwt\n\nSECRET_KEY = \"supersecret123\"  # hardcoded weak secret\n\n\nclass JWTManager:\n    def __init__(self):\n        self.secret = SECRET_KEY\n\n    def create_token(self, user_id):\n        # VULNERABILITY: no 'exp' claim \u2014 tokens never expire\n        return jwt.encode({\"user_id\": user_id}, self.secret, algorithm=\"HS256\")\n\n    def decode_token(self, token):\n        # VULNERABILITY: no expiration verification, HS256 only\n        return jwt.decode(token, self.secret, algorithms=[\"HS256\"])\n\n\"\"\"Configuration with hardcoded secrets.\"\"\"\nAPI_KEY = \"sk-live-abcdef1234567890\"\nDATABASE_URL = \"postgres://admin:password123@db.internal:5432/prod\"\n\n\"\"\"Password checking without hashing.\"\"\"\nfrom config import API_KEY  # noqa: F401  (unused import of secret-bearing module)\n\n\nclass LoginHandler:\n    def __init__(self, user_db):\n        self.user_db = user_db\n\n    def check_password(self, username, provided_password):\n        # VULNERABILITY: plaintext password comparison\n        stored = self.user_db.get(username)\n        return stored == provided_password\n\n\"\"\"Session management without timeout.\"\"\"\n\n\nclass SessionStore:\n    def __init__(self):\n        self.sessions = {}\n\n    def create_session(self, user_id):\n        # VULNERABILITY: session has no expiry timestamp\n        session_id = f\"sess_{user_id}_{len(self.sessions)}\"\n        self.sessions[session_id] = {\"user_id\": user_id}\n        return session_id\n\n    def validate_session(self, session_id):\n        # VULNERABILITY: no age check \u2014 sessions live forever\n        return session_id in self.sessions\n"
+        },
+        "confidence": 1.0,
+        "node": "7a4a7311"
+      },
+      {
+        "graph": "Analyze authentication security",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 36
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "management",
           "line": 36
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 39
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 41
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 43
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 44
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 45
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 46
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 47
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 49
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 50
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 51
         },
         "confidence": 0.75,
-        "node": "9750369b"
+        "node": "6fbd20a0"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "6c9c4aea",
+        "from_graph": "b51f73fb",
         "finding": "Sessions have no timeout and no invalidation on logout",
         "confidence": 0.85,
-        "node": "20dbdab0"
+        "node": "dfd55604"
       },
       {
         "graph": "Analyze authentication security",
@@ -185,73 +239,127 @@
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "3d035fb2",
+        "from_graph": "738347c5",
+        "finding": {
+          "classes": [
+            "JWTManager",
+            "LoginHandler",
+            "SessionStore"
+          ],
+          "functions": [
+            "__init__",
+            "create_token",
+            "decode_token",
+            "__init__",
+            "check_password",
+            "__init__",
+            "create_session",
+            "validate_session"
+          ],
+          "imports": [
+            "jwt"
+          ],
+          "source_excerpt": "\"\"\"JWT handling with intentional vulnerabilities.\"\"\"\nimport jwt\n\nSECRET_KEY = \"supersecret123\"  # hardcoded weak secret\n\n\nclass JWTManager:\n    def __init__(self):\n        self.secret = SECRET_KEY\n\n    def create_token(self, user_id):\n        # VULNERABILITY: no 'exp' claim \u2014 tokens never expire\n        return jwt.encode({\"user_id\": user_id}, self.secret, algorithm=\"HS256\")\n\n    def decode_token(self, token):\n        # VULNERABILITY: no expiration verification, HS256 only\n        return jwt.decode(token, self.secret, algorithms=[\"HS256\"])\n\n\"\"\"Configuration with hardcoded secrets.\"\"\"\nAPI_KEY = \"sk-live-abcdef1234567890\"\nDATABASE_URL = \"postgres://admin:password123@db.internal:5432/prod\"\n\n\"\"\"Password checking without hashing.\"\"\"\nfrom config import API_KEY  # noqa: F401  (unused import of secret-bearing module)\n\n\nclass LoginHandler:\n    def __init__(self, user_db):\n        self.user_db = user_db\n\n    def check_password(self, username, provided_password):\n        # VULNERABILITY: plaintext password comparison\n        stored = self.user_db.get(username)\n        return stored == provided_password\n\n\"\"\"Session management without timeout.\"\"\"\n\n\nclass SessionStore:\n    def __init__(self):\n        self.sessions = {}\n\n    def create_session(self, user_id):\n        # VULNERABILITY: session has no expiry timestamp\n        session_id = f\"sess_{user_id}_{len(self.sessions)}\"\n        self.sessions[session_id] = {\"user_id\": user_id}\n        return session_id\n\n    def validate_session(self, session_id):\n        # VULNERABILITY: no age check \u2014 sessions live forever\n        return session_id in self.sessions\n"
+        },
+        "confidence": 1.0,
+        "node": "5870c5a0"
+      },
+      {
+        "graph": "JWT Security Analysis",
+        "from_graph": "738347c5",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "d6bb997e"
+        "node": "a6977be4"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "3d035fb2",
+        "from_graph": "738347c5",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "d6bb997e"
+        "node": "a6977be4"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "3d035fb2",
+        "from_graph": "738347c5",
         "finding": "Confirmed: JWT tokens never expire (critical) and secret is weak",
         "confidence": 0.88,
-        "node": "eb5b9c50"
+        "node": "3744ce0b"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "77bee528",
+        "from_graph": "a600e474",
         "finding": "Original finding is valid and was under-confident",
         "confidence": 0.9,
-        "node": "b1f55d6b"
+        "node": "9e88f60d"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "ccd1cf06",
+        "from_graph": "69916716",
+        "finding": {
+          "classes": [
+            "JWTManager",
+            "LoginHandler",
+            "SessionStore"
+          ],
+          "functions": [
+            "__init__",
+            "create_token",
+            "decode_token",
+            "__init__",
+            "check_password",
+            "__init__",
+            "create_session",
+            "validate_session"
+          ],
+          "imports": [
+            "jwt"
+          ],
+          "source_excerpt": "\"\"\"JWT handling with intentional vulnerabilities.\"\"\"\nimport jwt\n\nSECRET_KEY = \"supersecret123\"  # hardcoded weak secret\n\n\nclass JWTManager:\n    def __init__(self):\n        self.secret = SECRET_KEY\n\n    def create_token(self, user_id):\n        # VULNERABILITY: no 'exp' claim \u2014 tokens never expire\n        return jwt.encode({\"user_id\": user_id}, self.secret, algorithm=\"HS256\")\n\n    def decode_token(self, token):\n        # VULNERABILITY: no expiration verification, HS256 only\n        return jwt.decode(token, self.secret, algorithms=[\"HS256\"])\n\n\"\"\"Configuration with hardcoded secrets.\"\"\"\nAPI_KEY = \"sk-live-abcdef1234567890\"\nDATABASE_URL = \"postgres://admin:password123@db.internal:5432/prod\"\n\n\"\"\"Password checking without hashing.\"\"\"\nfrom config import API_KEY  # noqa: F401  (unused import of secret-bearing module)\n\n\nclass LoginHandler:\n    def __init__(self, user_db):\n        self.user_db = user_db\n\n    def check_password(self, username, provided_password):\n        # VULNERABILITY: plaintext password comparison\n        stored = self.user_db.get(username)\n        return stored == provided_password\n\n\"\"\"Session management without timeout.\"\"\"\n\n\nclass SessionStore:\n    def __init__(self):\n        self.sessions = {}\n\n    def create_session(self, user_id):\n        # VULNERABILITY: session has no expiry timestamp\n        session_id = f\"sess_{user_id}_{len(self.sessions)}\"\n        self.sessions[session_id] = {\"user_id\": user_id}\n        return session_id\n\n    def validate_session(self, session_id):\n        # VULNERABILITY: no age check \u2014 sessions live forever\n        return session_id in self.sessions\n"
+        },
+        "confidence": 1.0,
+        "node": "fb2b741a"
+      },
+      {
+        "graph": "JWT Security Analysis",
+        "from_graph": "69916716",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "cac08f96"
+        "node": "b9a61cc4"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "ccd1cf06",
+        "from_graph": "69916716",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "cac08f96"
+        "node": "b9a61cc4"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "ccd1cf06",
+        "from_graph": "69916716",
         "finding": "Weak secret, algorithm confusion exposure, no refresh rotation",
         "confidence": 0.9,
-        "node": "2a78331e"
+        "node": "510a8e80"
       },
       {
         "graph": "JWT Security Analysis",
         "finding": "JWT handling may be missing expiration verification",
-        "confidence": 0.8400000000000001
+        "confidence": 0.8933333333333334
       },
       {
         "graph": "Session Management Analysis",
@@ -275,7 +383,7 @@
       }
     ],
     "topology_used": {
-      "root": "planning:2554c8d1",
+      "root": "planning:8916afdd",
       "subgraphs": [
         "execution:JWT Security Analysis",
         "execution:Session Management Analysis",
@@ -286,68 +394,68 @@
     },
     "execution_log": [
       {
-        "timestamp": "2026-08-04T16:35:00.390161",
+        "timestamp": "2026-08-04T16:56:21.690123",
         "event": "run_started",
-        "graph_id": "2554c8d1",
+        "graph_id": "8916afdd",
         "objective": "Analyze authentication security",
         "llm_mode": "mock"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.390391",
+        "timestamp": "2026-08-04T16:56:21.690436",
         "event": "spawn_approved",
-        "graph_id": "7a7724e6",
-        "parent": "2554c8d1",
+        "graph_id": "be343456",
+        "parent": "8916afdd",
         "loop_type": "execution",
         "depth": 1,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.390506",
+        "timestamp": "2026-08-04T16:56:21.690558",
         "event": "spawn_approved",
-        "graph_id": "6c9c4aea",
-        "parent": "2554c8d1",
+        "graph_id": "b51f73fb",
+        "parent": "8916afdd",
         "loop_type": "execution",
         "depth": 1,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.391039",
+        "timestamp": "2026-08-04T16:56:21.692000",
         "event": "spawn_approved",
-        "graph_id": "77bee528",
-        "parent": "7a7724e6",
+        "graph_id": "a600e474",
+        "parent": "be343456",
         "loop_type": "verification",
         "depth": 2,
         "reason": "low_confidence_verification"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.391197",
+        "timestamp": "2026-08-04T16:56:21.692186",
         "event": "spawn_approved",
-        "graph_id": "3d035fb2",
-        "parent": "7a7724e6",
+        "graph_id": "738347c5",
+        "parent": "be343456",
         "loop_type": "execution",
         "depth": 2,
         "reason": "correction"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.393030",
+        "timestamp": "2026-08-04T16:56:21.695636",
         "event": "correction_completed",
-        "graph_id": "7a7724e6",
-        "corrected_graph": "3d035fb2",
-        "new_confidence": 0.8400000000000001
+        "graph_id": "be343456",
+        "corrected_graph": "738347c5",
+        "new_confidence": 0.8933333333333334
       },
       {
-        "timestamp": "2026-08-04T16:35:00.395467",
+        "timestamp": "2026-08-04T16:56:21.700229",
         "event": "spawn_approved",
-        "graph_id": "ccd1cf06",
-        "parent": "7a7724e6",
+        "graph_id": "69916716",
+        "parent": "be343456",
         "loop_type": "execution",
         "depth": 2,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T16:35:00.401823",
+        "timestamp": "2026-08-04T16:56:21.711311",
         "event": "run_finished",
-        "graph_id": "2554c8d1",
+        "graph_id": "8916afdd",
         "status": "completed",
         "llm_calls": 6
       }
@@ -370,7 +478,7 @@
     ]
   },
   "deltas": {
-    "findings_count": 28,
+    "findings_count": 32,
     "llm_calls": 5,
     "corrections": 1
   }
