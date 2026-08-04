@@ -53,11 +53,13 @@ def build_report(root, harness, knowledge) -> dict:
     }
 
 
-async def run_analysis(path, objective, output, mock, provider, model, max_llm_calls) -> dict:
+async def run_analysis(path, objective, output, mock, provider, model, max_llm_calls,
+                       max_total_nodes=50) -> dict:
     data_dir = Path("data")
     use_mock = mock or not os.environ.get("RGI_LLM_API_KEY")
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
     harness = Harness(HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
+                                    max_total_nodes=max_total_nodes,
                                     llm_client=llm, data_dir=str(data_dir)))
 
     # Step 1: Perception builds the world model
@@ -143,6 +145,7 @@ def main(argv=None) -> int:
     evaluate.add_argument("--provider", default="kimi")
     evaluate.add_argument("--model", default=None)
     evaluate.add_argument("--max-llm-calls", type=int, default=20)
+    evaluate.add_argument("--target", default=None)
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
@@ -160,7 +163,8 @@ def main(argv=None) -> int:
     if args.command == "eval":
         from rgi.eval import run_eval
         result = asyncio.run(run_eval(args.objective, args.runs, args.mock,
-                                      args.provider, args.model, args.max_llm_calls))
+                                      args.provider, args.model, args.max_llm_calls,
+                                      target_filter=args.target))
         print(json.dumps(result, indent=2))
         Path(args.output).write_text(json.dumps(result, indent=2) + "\n")
         return 0

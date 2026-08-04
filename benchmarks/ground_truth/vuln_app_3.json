@@ -1,0 +1,7 @@
+{"vulns": [
+  {"id": "V10-shared-secret-no-expiry", "terms": ["expir", "hardcoded"]},
+  {"id": "V11-multifile-sqli", "terms": ["injection"]},
+  {"id": "V12-auth-bypass-admin-delete", "terms": ["bypass", "unprotected", "no auth", "without auth", "missing auth"]},
+  {"id": "V13-storage-traversal", "terms": ["traversal"]},
+  {"id": "V14-pickle-deserialization", "terms": ["pickle"]}
+]}

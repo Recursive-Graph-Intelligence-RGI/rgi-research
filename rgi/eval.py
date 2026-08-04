@@ -11,9 +11,14 @@ from rgi.reasoning.llm_client import LLMClient, MockLLMClient
 
 TARGETS = [
     {"name": "sample_project", "path": "sample_project",
-     "ground_truth": "benchmarks/ground_truth/sample_project.json"},
+     "ground_truth": "benchmarks/ground_truth/sample_project.json",
+     "max_total_nodes": 50, "max_llm_calls": 20},
     {"name": "vuln_app_2", "path": "benchmarks/vuln_app_2",
-     "ground_truth": "benchmarks/ground_truth/vuln_app_2.json"},
+     "ground_truth": "benchmarks/ground_truth/vuln_app_2.json",
+     "max_total_nodes": 50, "max_llm_calls": 20},
+    {"name": "vuln_app_3", "path": "benchmarks/vuln_app_3",
+     "ground_truth": "benchmarks/ground_truth/vuln_app_3.json",
+     "max_total_nodes": 120, "max_llm_calls": 40},
 ]
 CONDITIONS = ("rgi", "single", "fixed")
 
@@ -25,26 +30,33 @@ def score_recall(report: dict, ground_truth: dict) -> float:
     return hits / len(vulns) if vulns else 0.0
 
 
-async def _run_condition(condition, target, objective, mock, provider, model, max_llm_calls, run_idx):
+async def _run_condition(condition, target, objective, mock, provider, model, max_llm_calls,
+                         run_idx, max_total_nodes=50):
     if condition == "rgi":
         from rgi.cli import run_analysis  # local import: avoids circularity
         return await run_analysis(target["path"], objective,
                                   f"data/eval_{target['name']}_{condition}_{run_idx}.json",
-                                  mock, provider, model, max_llm_calls)
+                                  mock, provider, model, max_llm_calls,
+                                  max_total_nodes=max_total_nodes)
     llm = MockLLMClient() if mock else LLMClient(model=model)
     if condition == "single":
         return await run_baseline(target["path"], objective, llm)
     return await run_fixed_workflow(target["path"], objective, llm)
 
 
-async def run_eval(objective, runs, mock, provider, model, max_llm_calls) -> dict:
+async def run_eval(objective, runs, mock, provider, model, max_llm_calls,
+                   target_filter=None) -> dict:
     matrix = []
     for target in TARGETS:
+        if target_filter is not None and target["name"] != target_filter:
+            continue
         ground_truth = json.loads(Path(target["ground_truth"]).read_text())
+        budget = max(max_llm_calls, target.get("max_llm_calls", 0))
         for condition in CONDITIONS:
             for run_idx in range(runs):
                 report = await _run_condition(condition, target, objective, mock,
-                                              provider, model, max_llm_calls, run_idx)
+                                              provider, model, budget, run_idx,
+                                              max_total_nodes=target.get("max_total_nodes", 50))
                 matrix.append({
                     "target": target["name"],
                     "condition": condition,

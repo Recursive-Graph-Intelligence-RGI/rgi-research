@@ -15,11 +15,12 @@ def test_eval_matrix_mock(tmp_path):
                "--runs", "1", "--output", str(output), "--mock"])
     assert rc == 0
     result = json.loads(output.read_text())
-    # 2 targets x 3 conditions x 1 run
-    assert len(result["matrix"]) == 6
+    # 3 targets x 3 conditions x 1 run
+    assert len(result["matrix"]) == 9
     keys = {(m["target"], m["condition"]) for m in result["matrix"]}
     assert ("sample_project", "rgi") in keys
     assert ("vuln_app_2", "fixed") in keys
+    assert ("vuln_app_3", "rgi") in keys
     # summary has mean recall/calls per target+condition
     s = result["summary"]["sample_project|rgi"]
     assert 0.0 <= s["mean_recall"] <= 1.0
