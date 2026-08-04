@@ -206,6 +206,11 @@ async def verify_findings(node: CognitiveNode, target_nodes: list,
     challenged = [t for t in target_nodes if t.metadata.get("challenged_finding")]
     if not challenged:
         return {"finding_valid": True, "confidence": 0.5, "detail": "no_targets"}
+    decision = harness.gate.check("llm_call", {"calls_so_far": harness.total_llm_calls})
+    if not decision.allowed:
+        harness.audit.record("governance_denied", graph_id=node.parent_graph_id,
+                             node_id=node.id, reason=decision.reason)
+        return {"finding_valid": True, "confidence": 0.0, "detail": "budget_exhausted"}
     result = await harness.llm_client.reason(f"Challenge finding: {node.content}", "")
     result.setdefault("finding_valid", True)
     return result

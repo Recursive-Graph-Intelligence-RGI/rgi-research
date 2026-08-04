@@ -35,7 +35,8 @@ def build_report(root, harness, knowledge) -> dict:
         "objective": root.state.objective,
         "status": root.state.status,
         "aggregate_confidence": round(aggregate, 3),
-        "corrections_made": sum(g.state.correction_count for g in graphs),
+        "corrections_made": sum(1 for e in harness.audit.events
+                                if e["event"] == "correction_completed"),
         "graphs_spawned": len(graphs) - 1,  # exclude the root itself
         "max_depth_reached": max((harness.depth_of(g) for g in graphs), default=0),
         "llm_calls": harness.total_llm_calls,

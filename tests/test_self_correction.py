@@ -51,3 +51,28 @@ async def test_correction_changes_topology_and_raises_confidence(tmp_path):
     # Whole system stayed within limits
     assert all(h.depth_of(g) <= 2 for g in h.graphs.values())
     assert h.total_llm_calls <= 20
+
+
+async def test_verification_challenge_refused_when_budget_exhausted(tmp_path):
+    """The LLM hard cap binds verification challenges too: no gate bypass."""
+    from rgi.core.models import (
+        CognitiveGraph, GraphPolicy, GraphState, LoopType, NodeType,
+    )
+    from rgi.core.engine import execute_graph
+    from rgi.core.harness import Harness, HarnessConfig
+    from rgi.reasoning.llm_client import MockLLMClient
+
+    h = Harness(HarnessConfig(data_dir=str(tmp_path), max_llm_calls=0,
+                              llm_client=MockLLMClient()))
+    g = CognitiveGraph(loop_type=LoopType.VERIFICATION,
+                       state=GraphState(objective="Verify: jwt security analysis"),
+                       policy=GraphPolicy(auto_spawn=False, require_verification=False))
+    from rgi.loops import initialize_graph_nodes
+    initialize_graph_nodes(g, {"objective": "Verify: jwt security analysis",
+                               "target_findings": [{"finding": "missing exp", "confidence": 0.6}]})
+    h.graphs[g.id] = g
+    await execute_graph(g, h)
+    verifier = next(n for n in g.nodes.values() if n.type == NodeType.VERIFICATION)
+    assert h.llm_client.calls == 0  # challenge never reached the LLM
+    assert verifier.result.get("detail") == "budget_exhausted"
+    assert any(e["event"] == "governance_denied" for e in h.audit.events)
