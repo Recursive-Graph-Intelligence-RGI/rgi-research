@@ -100,7 +100,7 @@ async def run_comparison(args) -> dict:
     baseline_llm = MockLLMClient() if use_mock else LLMClient(model=args.model)
     baseline = await run_baseline(args.path, args.objective, baseline_llm)
     rgi_report = await run_analysis(
-        args.path, args.objective, "report.json",
+        args.path, args.objective, str(Path("data") / "report_compare.json"),
         args.mock, args.provider, args.model, args.max_llm_calls,
     )
     return {
@@ -147,7 +147,7 @@ def main(argv=None) -> int:
     if args.command == "compare":
         comparison = asyncio.run(run_comparison(args))
         print(json.dumps(comparison, indent=2))
-        Path(args.output).write_text(json.dumps(comparison, indent=2))
+        Path(args.output).write_text(json.dumps(comparison, indent=2) + "\n")
         return 0 if comparison["rgi"]["status"] == "completed" else 1
     return 2
 
