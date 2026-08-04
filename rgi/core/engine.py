@@ -22,7 +22,7 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         progressed = False
 
         # PHASE 1: ACTIVATION — attention, not retrieval
-        scores = harness.activation_engine.propagate(graph, graph.state.objective)
+        scores = await harness.activation_engine.a_propagate(graph, graph.state.objective)
         for node_id, score in scores.items():
             if node_id in graph.nodes:
                 graph.nodes[node_id].activation = score

@@ -25,6 +25,7 @@ class HarnessConfig:
     max_depth: int = 3
     max_seconds: int = 300
     llm_client: object = None
+    activation_engine: object = None
     data_dir: str = "data"
 
 
@@ -38,7 +39,7 @@ class Harness:
         self.max_depth = config.max_depth
         self.max_seconds = config.max_seconds
         self.started_at = time.monotonic()
-        self.activation_engine = ActivationEngine()
+        self.activation_engine = config.activation_engine or ActivationEngine()
         self.context_builder = ContextBuilder()
         self.llm_client = config.llm_client or LLMClient(on_call=self._count_llm_call)
         if config.llm_client is not None:

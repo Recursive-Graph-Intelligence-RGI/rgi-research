@@ -31,13 +31,13 @@ def score_recall(report: dict, ground_truth: dict) -> float:
 
 
 async def _run_condition(condition, target, objective, mock, provider, model, max_llm_calls,
-                         run_idx, max_total_nodes=50):
+                         run_idx, max_total_nodes=50, embed=False):
     if condition == "rgi":
         from rgi.cli import run_analysis  # local import: avoids circularity
         return await run_analysis(target["path"], objective,
                                   f"data/eval_{target['name']}_{condition}_{run_idx}.json",
                                   mock, provider, model, max_llm_calls,
-                                  max_total_nodes=max_total_nodes)
+                                  max_total_nodes=max_total_nodes, embed=embed)
     llm = MockLLMClient() if mock else LLMClient(model=model)
     if condition == "single":
         return await run_baseline(target["path"], objective, llm)
@@ -45,7 +45,7 @@ async def _run_condition(condition, target, objective, mock, provider, model, ma
 
 
 async def run_eval(objective, runs, mock, provider, model, max_llm_calls,
-                   target_filter=None) -> dict:
+                   target_filter=None, embed=False) -> dict:
     matrix = []
     for target in TARGETS:
         if target_filter is not None and target["name"] != target_filter:
@@ -56,7 +56,8 @@ async def run_eval(objective, runs, mock, provider, model, max_llm_calls,
             for run_idx in range(runs):
                 report = await _run_condition(condition, target, objective, mock,
                                               provider, model, budget, run_idx,
-                                              max_total_nodes=target.get("max_total_nodes", 50))
+                                              max_total_nodes=target.get("max_total_nodes", 50),
+                                              embed=embed)
                 matrix.append({
                     "target": target["name"],
                     "condition": condition,

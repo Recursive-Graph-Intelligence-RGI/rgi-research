@@ -54,13 +54,23 @@ def build_report(root, harness, knowledge) -> dict:
 
 
 async def run_analysis(path, objective, output, mock, provider, model, max_llm_calls,
-                       max_total_nodes=50) -> dict:
+                       max_total_nodes=50, embed: bool = False) -> dict:
     data_dir = Path("data")
     use_mock = mock or not os.environ.get("RGI_LLM_API_KEY")
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
-    harness = Harness(HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
-                                    max_total_nodes=max_total_nodes,
-                                    llm_client=llm, data_dir=str(data_dir)))
+    config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
+                           max_total_nodes=max_total_nodes,
+                           llm_client=llm, data_dir=str(data_dir))
+    if embed or os.environ.get("RGI_EMBED_BASE_URL"):
+        from rgi.memory.activation import EmbeddingActivationEngine
+        from rgi.reasoning.embeddings import OpenAICompatibleEmbeddings
+        provider = OpenAICompatibleEmbeddings(
+            base_url=os.environ.get("RGI_EMBED_BASE_URL", "http://localhost:11434/v1"),
+            api_key=os.environ.get("RGI_EMBED_API_KEY", ""),
+            model=os.environ.get("RGI_EMBED_MODEL", "nomic-embed-text"),
+        )
+        config.activation_engine = EmbeddingActivationEngine(provider)
+    harness = Harness(config)
 
     # Step 1: Perception builds the world model
     knowledge = await PerceptionLayer().ingest_codebase(path)
@@ -74,7 +84,7 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
         policy=GraphPolicy(),
     )
     initialize_graph_nodes(root, {"objective": objective})
-    activated = harness.activation_engine.propagate(knowledge, objective)
+    activated = await harness.activation_engine.a_propagate(knowledge, objective)
     root.memory_snapshot["world_model"] = {
         knowledge.nodes[nid].metadata["name"]: knowledge.nodes[nid].content
         for nid, score in activated.items()
@@ -104,6 +114,7 @@ async def run_comparison(args) -> dict:
     rgi_report = await run_analysis(
         args.path, args.objective, str(Path("data") / "report_compare.json"),
         args.mock, args.provider, args.model, args.max_llm_calls,
+        embed=args.embed,
     )
     return {
         "objective": args.objective,
@@ -129,6 +140,8 @@ def main(argv=None) -> int:
     analyze.add_argument("--provider", default="kimi")
     analyze.add_argument("--model", default=None)
     analyze.add_argument("--max-llm-calls", type=int, default=20)
+    analyze.add_argument("--embed", action="store_true",
+                         help="Seed activation with embeddings (OpenAI-compatible endpoint)")
     compare = sub.add_parser("compare", help="Run RGI vs single-agent baseline on the same target")
     compare.add_argument("path")
     compare.add_argument("--objective", required=True)
@@ -137,6 +150,8 @@ def main(argv=None) -> int:
     compare.add_argument("--provider", default="kimi")
     compare.add_argument("--model", default=None)
     compare.add_argument("--max-llm-calls", type=int, default=20)
+    compare.add_argument("--embed", action="store_true",
+                         help="Seed activation with embeddings (OpenAI-compatible endpoint)")
     evaluate = sub.add_parser("eval", help="Run the target x condition x repetition experiment matrix")
     evaluate.add_argument("--objective", required=True)
     evaluate.add_argument("--runs", type=int, default=3)
@@ -146,12 +161,15 @@ def main(argv=None) -> int:
     evaluate.add_argument("--model", default=None)
     evaluate.add_argument("--max-llm-calls", type=int, default=20)
     evaluate.add_argument("--target", default=None)
+    evaluate.add_argument("--embed", action="store_true",
+                          help="Seed activation with embeddings (OpenAI-compatible endpoint)")
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
         report = asyncio.run(run_analysis(
             args.path, args.objective, args.output,
             args.mock, args.provider, args.model, args.max_llm_calls,
+            embed=args.embed,
         ))
         print(json.dumps(report, indent=2))
         return 0 if report["status"] == "completed" else 1
@@ -164,7 +182,7 @@ def main(argv=None) -> int:
         from rgi.eval import run_eval
         result = asyncio.run(run_eval(args.objective, args.runs, args.mock,
                                       args.provider, args.model, args.max_llm_calls,
-                                      target_filter=args.target))
+                                      target_filter=args.target, embed=args.embed))
         print(json.dumps(result, indent=2))
         Path(args.output).write_text(json.dumps(result, indent=2) + "\n")
         return 0

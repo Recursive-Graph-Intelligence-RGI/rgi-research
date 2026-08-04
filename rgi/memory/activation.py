@@ -45,3 +45,46 @@ class ActivationEngine:
                 scores[nid] = min(1.0, scores.get(nid, 0.0) + self.HISTORY_BONUS)
 
         return scores
+
+    async def a_propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
+        """Async seam: embedding engines implement natively; keyword engine wraps."""
+        return self.propagate(graph, query)
+
+
+class EmbeddingActivationEngine:
+    """v0.2: embedding-seeded spreading activation. Seed = cosine relevance;
+    spread = multi-hop decay. Falls back to nothing keyword-ish — the seed IS
+    the association (status report §4.1, candidate 4)."""
+
+    DECAY = 0.8
+    SPREAD_ITERATIONS = 3
+    HISTORY_BONUS = 0.1
+
+    def __init__(self, provider, cache: dict | None = None):
+        self.provider = provider
+        self.cache: dict[int, list[float]] = cache if cache is not None else {}
+
+    async def a_propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
+        from rgi.reasoning.embeddings import cosine
+
+        nodes = list(graph.nodes.values())
+        missing = [n for n in nodes if hash(n.content) not in self.cache]
+        if missing:
+            vectors = await self.provider.embed([n.content for n in missing])
+            for node, vec in zip(missing, vectors):
+                self.cache[hash(node.content)] = vec
+        query_vec = (await self.provider.embed([query]))[0]
+
+        scores = {
+            n.id: max(0.0, cosine(query_vec, self.cache[hash(n.content)]))
+            for n in nodes
+        }
+        for _ in range(self.SPREAD_ITERATIONS):
+            for edge in graph.edges:
+                spread = scores.get(edge.source, 0.0) * edge.weight * self.DECAY
+                if spread > scores.get(edge.target, 0.0):
+                    scores[edge.target] = min(1.0, spread)
+        for nid, node in graph.nodes.items():
+            if any(h.get("correction_success") for h in node.history):
+                scores[nid] = min(1.0, scores.get(nid, 0.0) + self.HISTORY_BONUS)
+        return scores
