@@ -8,6 +8,9 @@ low-confidence findings trigger topological self-correction (a *new* execution
 graph, not a retry), and every spawn, rejection, and correction is recorded in
 a replayable audit trail.
 
+> Research vision and paper draft: `docs/vision.md`, `docs/architecture.md`,
+> `paper/recursive-graph-intelligence.md`.
+
 ## Architecture
 
 ```mermaid
