@@ -64,12 +64,13 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     if embed or os.environ.get("RGI_EMBED_BASE_URL"):
         from rgi.memory.activation import EmbeddingActivationEngine
         from rgi.reasoning.embeddings import OpenAICompatibleEmbeddings
-        provider = OpenAICompatibleEmbeddings(
+        embed_provider = OpenAICompatibleEmbeddings(
             base_url=os.environ.get("RGI_EMBED_BASE_URL", "http://localhost:11434/v1"),
             api_key=os.environ.get("RGI_EMBED_API_KEY", ""),
             model=os.environ.get("RGI_EMBED_MODEL", "nomic-embed-text"),
         )
-        config.activation_engine = EmbeddingActivationEngine(provider)
+        embed_threshold = float(os.environ.get("RGI_EMBED_THRESHOLD", "0.5"))
+        config.activation_engine = EmbeddingActivationEngine(embed_provider, threshold=embed_threshold)
     harness = Harness(config)
 
     # Step 1: Perception builds the world model
@@ -88,7 +89,7 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     root.memory_snapshot["world_model"] = {
         knowledge.nodes[nid].metadata["name"]: knowledge.nodes[nid].content
         for nid, score in activated.items()
-        if score > 0.5 and nid in knowledge.nodes
+        if score > getattr(harness.activation_engine, "threshold", 0.5) and nid in knowledge.nodes
     }
     harness.graphs[root.id] = root
     harness.audit.record("run_started", graph_id=root.id, objective=objective,

@@ -26,7 +26,8 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         for node_id, score in scores.items():
             if node_id in graph.nodes:
                 graph.nodes[node_id].activation = score
-        active = [n for n in graph.nodes.values() if n.activation > ACTIVATION_THRESHOLD]
+        threshold = getattr(harness.activation_engine, "threshold", ACTIVATION_THRESHOLD)
+        active = [n for n in graph.nodes.values() if n.activation > threshold]
         active.sort(key=lambda n: n.activation, reverse=True)
         executable = {NodeType.REASONING, NodeType.TOOL, NodeType.VERIFICATION,
                       NodeType.GOVERNANCE}

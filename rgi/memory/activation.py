@@ -18,6 +18,7 @@ SEED_ALIASES: dict[str, set[str]] = {
 
 class ActivationEngine:
     DECAY = 0.8
+    threshold = 0.5
     HISTORY_BONUS = 0.1
 
     def propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
@@ -60,9 +61,10 @@ class EmbeddingActivationEngine:
     SPREAD_ITERATIONS = 3
     HISTORY_BONUS = 0.1
 
-    def __init__(self, provider, cache: dict | None = None):
+    def __init__(self, provider, cache: dict | None = None, threshold: float = 0.5):
         self.provider = provider
         self.cache: dict[int, list[float]] = cache if cache is not None else {}
+        self.threshold = threshold
 
     async def a_propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
         from rgi.reasoning.embeddings import cosine

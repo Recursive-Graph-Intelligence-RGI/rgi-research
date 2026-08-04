@@ -66,3 +66,42 @@ async def test_keyword_engine_has_async_wrapper():
     g, a, b, c = _graph()
     scores = await ActivationEngine().a_propagate(g, "authentication security")
     assert scores[a.id] > 0.5                # keyword path unchanged
+
+
+from rgi.memory.activation import EmbeddingActivationEngine as _RealEmbeddingEngine
+
+
+class _LowThresholdEngine:
+    """Test stub: hash embeddings score low; force threshold 0.2."""
+
+    def __init__(self, provider, **_ignored):
+        self._inner = _RealEmbeddingEngine(provider, threshold=0.2)
+        self.threshold = self._inner.threshold
+
+    async def a_propagate(self, graph, query):
+        return await self._inner.a_propagate(graph, query)
+
+
+async def test_embed_live_path_audit_llm_mode_is_string(tmp_path, monkeypatch):
+    """Regression: the embeddings provider local must not shadow the provider
+    string — a live embed run crashed serializing llm_mode (Run 5 attempt 1)."""
+    import rgi.cli as cli
+    from rgi.reasoning import embeddings as emb_mod
+    from rgi.reasoning.llm_client import MockLLMClient
+
+    monkeypatch.setattr(emb_mod, "OpenAICompatibleEmbeddings",
+                        lambda *a, **kw: emb_mod.HashEmbeddings())
+    # Hash embeddings score low (~0.27); a real provider scores higher.
+    # Inject a low-threshold engine to keep the offline test behavior parity.
+    import rgi.memory.activation as act_mod
+    monkeypatch.setattr(act_mod, "EmbeddingActivationEngine", _LowThresholdEngine)
+    monkeypatch.setattr(cli, "LLMClient", lambda model=None: MockLLMClient())
+    monkeypatch.setenv("RGI_LLM_API_KEY", "dummy")
+
+    report = await cli.run_analysis(
+        "sample_project", "Analyze authentication security",
+        str(tmp_path / "r.json"), False, "kimi", None, 20, embed=True)
+    assert report["status"] == "completed"
+    started = [e for e in report["execution_log"] if e["event"] == "run_started"]
+    assert started
+    assert all(isinstance(e["llm_mode"], str) for e in started)
