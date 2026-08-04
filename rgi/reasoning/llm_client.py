@@ -80,10 +80,18 @@ class MockLLMClient:
         lowered = task.lower()
         for key, responses in self.script.items():
             if key in lowered and responses:
-                if len(responses) > 1:
-                    return responses.pop(0)
-                return responses[0]
+                return self._validate(responses.pop(0) if len(responses) > 1 else responses[0])
         return _resp("no finding", 0.5, reasoning="mock fallback", action="none")
+
+    @staticmethod
+    def _validate(result: dict) -> dict:
+        try:
+            conf = float(result.get("confidence", 0.5))
+        except (TypeError, ValueError):
+            conf = 0.5
+        result["confidence"] = min(1.0, max(0.0, conf))
+        result.setdefault("suggested_subgraphs", [])
+        return result
 
 
 class LLMClient:
@@ -122,4 +130,14 @@ class LLMClient:
             )
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"]
-        return json.loads(content)
+        return self._validate(json.loads(content))
+
+    @staticmethod
+    def _validate(result: dict) -> dict:
+        try:
+            conf = float(result.get("confidence", 0.5))
+        except (TypeError, ValueError):
+            conf = 0.5
+        result["confidence"] = min(1.0, max(0.0, conf))
+        result.setdefault("suggested_subgraphs", [])
+        return result

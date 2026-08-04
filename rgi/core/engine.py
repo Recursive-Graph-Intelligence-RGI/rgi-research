@@ -44,35 +44,44 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                 continue
             node.state = NodeState.ACTIVE
 
-            if node.type == NodeType.REASONING:
-                context = harness.context_builder.build(node, graph)
-                result = await harness.llm_client.reason(node.content, context)
-                node.result = result
-                node.confidence = float(result.get("confidence", 0.5))
-                node.state = NodeState.COMPLETED
+            try:
+                if node.type == NodeType.REASONING:
+                    context = harness.context_builder.build(node, graph)
+                    result = await harness.llm_client.reason(node.content, context)
+                    node.result = result
+                    node.confidence = float(result.get("confidence", 0.5))
+                    node.state = NodeState.COMPLETED
 
-            elif node.type == NodeType.TOOL:
-                result = await harness.tool_registry.execute(
-                    node.metadata["tool"], node.metadata.get("params", {}))
-                node.result = result
-                node.confidence = float(result.get("confidence", 0.8))
-                node.state = NodeState.COMPLETED
+                elif node.type == NodeType.TOOL:
+                    result = await harness.tool_registry.execute(
+                        node.metadata["tool"], node.metadata.get("params", {}))
+                    node.result = result
+                    node.confidence = float(result.get("confidence", 0.8))
+                    node.state = NodeState.COMPLETED
 
-            elif node.type == NodeType.VERIFICATION:
-                targets = [graph.nodes[e.target] for e in graph.edges
-                           if e.source == node.id and e.edge_type == "verifies"
-                           and e.target in graph.nodes]
-                challenge = await verify_findings(node, targets, harness)
-                node.result = challenge
-                node.confidence = float(challenge.get("confidence", 0.5))
-                node.state = NodeState.COMPLETED
-                if challenge.get("finding_valid", True) is False:
-                    await trigger_correction(graph, node, challenge, harness)
+                elif node.type == NodeType.VERIFICATION:
+                    targets = [graph.nodes[e.target] for e in graph.edges
+                               if e.source == node.id and e.edge_type == "verifies"
+                               and e.target in graph.nodes]
+                    challenge = await verify_findings(node, targets, harness)
+                    node.result = challenge
+                    node.confidence = float(challenge.get("confidence", 0.5))
+                    node.state = NodeState.COMPLETED
+                    if challenge.get("finding_valid", True) is False:
+                        await trigger_correction(graph, node, challenge, harness)
 
-            elif node.type == NodeType.GOVERNANCE:
-                node.result = {"compliant": True, "checks": []}
-                node.confidence = 1.0
-                node.state = NodeState.COMPLETED
+                elif node.type == NodeType.GOVERNANCE:
+                    node.result = {"compliant": True, "checks": []}
+                    node.confidence = 1.0
+                    node.state = NodeState.COMPLETED
+            except Exception as exc:  # containment: failed node, not lost run
+                node.state = NodeState.FAILED
+                node.history.append({"reason": "execution_error",
+                                     "error": str(exc),
+                                     "timestamp": datetime.now().isoformat()})
+                harness.audit.record("node_execution_error", graph_id=graph.id,
+                                     node_id=node.id, error=str(exc))
+                continue
 
             node.history.append({
                 "state": node.state.value,
@@ -89,10 +98,18 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                 child_id = await harness.request_subgraph_spawn(graph.id, proposal)
                 if child_id:
                     child_ids.append(child_id)
+            async def _run_child(child):
+                try:
+                    return await execute_graph(child, harness)
+                except Exception as exc:  # containment: failed child, not lost run
+                    child.state.status = "failed"
+                    harness.audit.record("child_execution_error", graph_id=child.id,
+                                         error=str(exc))
+                    return child
+
             children = [harness.get_graph(cid) for cid in child_ids]
             if children:
-                results = await asyncio.gather(
-                    *(execute_graph(c, harness) for c in children))
+                results = await asyncio.gather(*(_run_child(c) for c in children))
                 for child in results:
                     merge_subgraph_results(graph, child)
                 progressed = True
@@ -211,7 +228,13 @@ async def verify_findings(node: CognitiveNode, target_nodes: list,
         harness.audit.record("governance_denied", graph_id=node.parent_graph_id,
                              node_id=node.id, reason=decision.reason)
         return {"finding_valid": True, "confidence": 0.0, "detail": "budget_exhausted"}
-    result = await harness.llm_client.reason(f"Challenge finding: {node.content}", "")
+    challenged_text = "\n".join(
+        f"- {t.metadata['challenged_finding']}" for t in challenged
+    )
+    result = await harness.llm_client.reason(
+        f"Challenge finding: {node.content}",
+        f"FINDINGS UNDER CHALLENGE:\n{challenged_text}",
+    )
     result.setdefault("finding_valid", True)
     return result
 
