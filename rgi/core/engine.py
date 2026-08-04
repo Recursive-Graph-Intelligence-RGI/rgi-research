@@ -1,0 +1,239 @@
+"""The RGI execution loop — the heart of the system. Five phases per
+iteration: activation, node execution, recursive spawning, verification &
+consolidation, learning. The LLM is called inside nodes only; every
+orchestration decision is made here and in the Harness, and is audited."""
+import asyncio
+from datetime import datetime
+
+from rgi.core.harness import Harness
+from rgi.core.models import (
+    CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
+)
+
+ACTIVATION_THRESHOLD = 0.5
+
+
+async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
+    while graph.state.status == "running" and graph.state.iteration < graph.state.max_iterations:
+        if harness.time_exceeded():
+            graph.state.status = "failed"
+            harness.audit.record("time_limit_exceeded", graph_id=graph.id)
+            break
+        progressed = False
+
+        # PHASE 1: ACTIVATION — attention, not retrieval
+        scores = harness.activation_engine.propagate(graph, graph.state.objective)
+        for node_id, score in scores.items():
+            if node_id in graph.nodes:
+                graph.nodes[node_id].activation = score
+        active = [n for n in graph.nodes.values() if n.activation > ACTIVATION_THRESHOLD]
+        active.sort(key=lambda n: n.activation, reverse=True)
+        executable = {NodeType.REASONING, NodeType.TOOL, NodeType.VERIFICATION,
+                      NodeType.GOVERNANCE}
+        ordered = [n for n in _dependency_order(active, graph.edges)
+                   if n.type in executable]  # MEMORY/SIMULATION: inert data, never executed
+
+        # PHASE 2: NODE EXECUTION (topological: tool output feeds reasoning)
+        for node in ordered:
+            if node.state in (NodeState.COMPLETED, NodeState.FAILED):
+                continue
+            if not harness.governance_check(graph, node):
+                node.state = NodeState.FAILED
+                node.history.append({"reason": "governance_violation",
+                                     "timestamp": datetime.now().isoformat()})
+                continue
+            node.state = NodeState.ACTIVE
+
+            if node.type == NodeType.REASONING:
+                context = harness.context_builder.build(node, graph)
+                result = await harness.llm_client.reason(node.content, context)
+                node.result = result
+                node.confidence = float(result.get("confidence", 0.5))
+                node.state = NodeState.COMPLETED
+
+            elif node.type == NodeType.TOOL:
+                result = await harness.tool_registry.execute(
+                    node.metadata["tool"], node.metadata.get("params", {}))
+                node.result = result
+                node.confidence = float(result.get("confidence", 0.8))
+                node.state = NodeState.COMPLETED
+
+            elif node.type == NodeType.VERIFICATION:
+                targets = [graph.nodes[e.target] for e in graph.edges
+                           if e.source == node.id and e.edge_type == "verifies"
+                           and e.target in graph.nodes]
+                challenge = await verify_findings(node, targets, harness)
+                node.result = challenge
+                node.confidence = float(challenge.get("confidence", 0.5))
+                node.state = NodeState.COMPLETED
+                if challenge.get("finding_valid", True) is False:
+                    await trigger_correction(graph, node, challenge, harness)
+
+            elif node.type == NodeType.GOVERNANCE:
+                node.result = {"compliant": True, "checks": []}
+                node.confidence = 1.0
+                node.state = NodeState.COMPLETED
+
+            node.history.append({
+                "state": node.state.value,
+                "timestamp": datetime.now().isoformat(),
+                "confidence": node.confidence,
+            })
+            progressed = True
+
+        # PHASE 3: GRAPH EVOLUTION — recursive spawning, siblings concurrent
+        if graph.policy.auto_spawn and should_spawn_subgraphs(graph):
+            proposals = generate_spawn_proposals(graph, harness)
+            child_ids = []
+            for proposal in proposals:
+                child_id = await harness.request_subgraph_spawn(graph.id, proposal)
+                if child_id:
+                    child_ids.append(child_id)
+            children = [harness.get_graph(cid) for cid in child_ids]
+            if children:
+                results = await asyncio.gather(
+                    *(execute_graph(c, harness) for c in children))
+                for child in results:
+                    merge_subgraph_results(graph, child)
+                progressed = True
+
+        # PHASE 4: VERIFICATION & CONSOLIDATION (verification spawn = Task 13)
+        # NOTE: maybe_spawn_verification + correction can leave NEW pending
+        # spawn suggestions in memory_snapshot, so the completion decision
+        # must re-check should_spawn_subgraphs AFTER it runs.
+        if all_subgraphs_completed(graph, harness):
+            if not should_spawn_subgraphs(graph):
+                await maybe_spawn_verification(graph, harness)
+            if should_spawn_subgraphs(graph) and graph.policy.auto_spawn:
+                pass  # pending suggestions: next iteration's phase 3 handles them
+            else:
+                avg = _avg_confidence(graph)
+                if avg >= graph.state.confidence_threshold:
+                    graph.state.status = "completed"
+                elif graph.state.iteration >= graph.state.max_iterations - 1:
+                    graph.state.status = "failed"
+
+        # PHASE 5: LEARNING
+        harness.learning_engine.record_pathway(graph)
+
+        # Stagnation guard: never spin without progress
+        if not progressed and graph.state.status == "running":
+            avg = _avg_confidence(graph)
+            graph.state.status = ("completed" if avg >= graph.state.confidence_threshold
+                                  else "failed")
+            harness.audit.record("stagnation_stop", graph_id=graph.id, avg_confidence=avg)
+
+        graph.state.iteration += 1
+
+    graph.state.completed_at = datetime.now()
+    return graph
+
+
+async def maybe_spawn_verification(graph: CognitiveGraph, harness: Harness) -> None:
+    """Task 13 implements the body. Kept as a hook so phase 4 reads final."""
+    return None
+
+
+async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
+                             challenge: dict, harness: Harness) -> None:
+    """Task 13 implements topological correction. Hook for phase 2."""
+    return None
+
+
+async def verify_findings(node: CognitiveNode, target_nodes: list,
+                          harness: Harness) -> dict:
+    challenged = [t for t in target_nodes if t.metadata.get("challenged_finding")]
+    if not challenged:
+        return {"finding_valid": True, "confidence": 0.5, "detail": "no_targets"}
+    result = await harness.llm_client.reason(f"Challenge finding: {node.content}", "")
+    result.setdefault("finding_valid", True)
+    return result
+
+
+def should_spawn_subgraphs(graph: CognitiveGraph) -> bool:
+    if graph.memory_snapshot.get("spawn_suggestions"):
+        return True
+    return any(
+        n.type == NodeType.REASONING
+        and n.state == NodeState.COMPLETED
+        and isinstance(n.result, dict)
+        and n.result.get("suggested_subgraphs")
+        and not n.metadata.get("spawn_consumed")
+        for n in graph.nodes.values()
+    )
+
+
+def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[dict]:
+    suggestions = list(graph.memory_snapshot.pop("spawn_suggestions", []))
+    for n in graph.nodes.values():
+        if (n.type == NodeType.REASONING and n.state == NodeState.COMPLETED
+                and isinstance(n.result, dict) and n.result.get("suggested_subgraphs")
+                and not n.metadata.get("spawn_consumed")):
+            suggestions.extend(n.result["suggested_subgraphs"])
+            n.metadata["spawn_consumed"] = True
+    return [
+        {"loop_type": LoopType.EXECUTION, "objective": s,
+         "reason": "decomposition", "target_path": harness.config.target_path}
+        for s in suggestions
+    ]
+
+
+def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> None:
+    findings = _collect_findings(child)
+    if findings:
+        parent.memory_snapshot.setdefault("merged_findings", []).extend(
+            {"from_graph": child.id, **f} for f in findings)
+    suggestions = [
+        s for n in child.nodes.values() if isinstance(n.result, dict)
+        for s in n.result.get("suggested_subgraphs", [])
+    ]
+    if suggestions:
+        parent.memory_snapshot.setdefault("spawn_suggestions", []).extend(suggestions)
+    if child.state.correction_count:
+        parent.state.correction_count += child.state.correction_count
+
+
+def all_subgraphs_completed(graph: CognitiveGraph, harness: Harness) -> bool:
+    for sid in graph.subgraph_ids:
+        child = harness.get_graph(sid)
+        if child is not None and child.state.status not in ("completed", "failed"):
+            return False
+    return True
+
+
+def _avg_confidence(graph: CognitiveGraph) -> float:
+    completed = [n for n in graph.nodes.values() if n.state == NodeState.COMPLETED]
+    return (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0
+
+
+def _collect_findings(graph: CognitiveGraph) -> list[dict]:
+    out = []
+    for n in graph.nodes.values():
+        if n.state != NodeState.COMPLETED or not isinstance(n.result, dict):
+            continue
+        if "finding" in n.result:
+            out.append({"finding": n.result["finding"], "confidence": n.confidence,
+                        "node": n.id})
+        elif "findings" in n.result:
+            out.extend({"finding": f, "confidence": n.confidence, "node": n.id}
+                       for f in n.result["findings"])
+    return out
+
+
+def _dependency_order(nodes: list, edges: list) -> list:
+    """Active nodes sorted so flow/dependency sources execute first;
+    activation order preserved within a level; cycles fall back safely."""
+    ids = {n.id for n in nodes}
+    deps = {n.id: set() for n in nodes}
+    for e in edges:
+        if e.source in ids and e.target in ids and e.edge_type in ("flow", "dependency"):
+            deps[e.target].add(e.source)
+    remaining = {n.id: n for n in nodes}
+    ordered = []
+    while remaining:
+        ready = [nid for nid in remaining if not (deps[nid] & set(remaining))]
+        if not ready:
+            ready = list(remaining)
+        for nid in ready:
+            ordered.append(remaining.pop(nid))
+    return ordered
