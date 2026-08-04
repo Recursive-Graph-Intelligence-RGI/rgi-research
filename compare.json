@@ -12,171 +12,171 @@
     "findings": [
       {
         "graph": "Analyze authentication security",
-        "from_graph": "ae21c158",
+        "from_graph": "c6db7736",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "00f73091"
+        "node": "fc5c2e06"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "ae21c158",
+        "from_graph": "c6db7736",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "00f73091"
+        "node": "fc5c2e06"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "ae21c158",
+        "from_graph": "c6db7736",
         "finding": "JWT handling may be missing expiration verification",
         "confidence": 0.8400000000000001,
-        "node": "622837c3"
+        "node": "41303c22"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 36
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "management",
           "line": 36
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 39
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 41
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 43
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 44
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 45
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 46
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 47
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 49
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 50
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": {
           "kind": "keyword_hit",
           "keyword": "session",
           "line": 51
         },
         "confidence": 0.75,
-        "node": "c4e190bc"
+        "node": "09ad8b14"
       },
       {
         "graph": "Analyze authentication security",
-        "from_graph": "a5d25da5",
+        "from_graph": "dc90f5fd",
         "finding": "Sessions have no timeout and no invalidation on logout",
         "confidence": 0.85,
-        "node": "bee6cd38"
+        "node": "bad5c819"
       },
       {
         "graph": "Analyze authentication security",
@@ -185,68 +185,68 @@
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "d08e4cac",
+        "from_graph": "f0e87600",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "276c7309"
+        "node": "6be5870a"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "d08e4cac",
+        "from_graph": "f0e87600",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "276c7309"
+        "node": "6be5870a"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "d08e4cac",
+        "from_graph": "f0e87600",
         "finding": "Confirmed: JWT tokens never expire (critical) and secret is weak",
         "confidence": 0.88,
-        "node": "c2531d4e"
+        "node": "8950be35"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "344833c5",
+        "from_graph": "ff40cdeb",
         "finding": "Original finding is valid and was under-confident",
         "confidence": 0.9,
-        "node": "1685c354"
+        "node": "3e13e0ce"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "5946cbc8",
+        "from_graph": "1e36c87d",
         "finding": {
           "kind": "jwt_decode_without_exp_check",
           "severity": "high",
           "detail": "jwt.decode called without any expiration verification"
         },
         "confidence": 0.8,
-        "node": "babd5ee8"
+        "node": "a8d2b0f7"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "5946cbc8",
+        "from_graph": "1e36c87d",
         "finding": {
           "kind": "jwt_hs256_only",
           "severity": "medium",
           "detail": "Only HS256 allowed; check for algorithm confusion exposure"
         },
         "confidence": 0.8,
-        "node": "babd5ee8"
+        "node": "a8d2b0f7"
       },
       {
         "graph": "JWT Security Analysis",
-        "from_graph": "5946cbc8",
+        "from_graph": "1e36c87d",
         "finding": "Weak secret, algorithm confusion exposure, no refresh rotation",
         "confidence": 0.9,
-        "node": "cec205c2"
+        "node": "5eaab257"
       },
       {
         "graph": "JWT Security Analysis",
@@ -275,7 +275,7 @@
       }
     ],
     "topology_used": {
-      "root": "planning:f4c7f82c",
+      "root": "planning:a0793b4b",
       "subgraphs": [
         "execution:JWT Security Analysis",
         "execution:Session Management Analysis",
@@ -286,68 +286,68 @@
     },
     "execution_log": [
       {
-        "timestamp": "2026-08-04T15:34:12.654322",
+        "timestamp": "2026-08-04T15:37:11.453460",
         "event": "run_started",
-        "graph_id": "f4c7f82c",
+        "graph_id": "a0793b4b",
         "objective": "Analyze authentication security",
         "llm_mode": "mock"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.654539",
+        "timestamp": "2026-08-04T15:37:11.453678",
         "event": "spawn_approved",
-        "graph_id": "ae21c158",
-        "parent": "f4c7f82c",
+        "graph_id": "c6db7736",
+        "parent": "a0793b4b",
         "loop_type": "execution",
         "depth": 1,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.654668",
+        "timestamp": "2026-08-04T15:37:11.453809",
         "event": "spawn_approved",
-        "graph_id": "a5d25da5",
-        "parent": "f4c7f82c",
+        "graph_id": "dc90f5fd",
+        "parent": "a0793b4b",
         "loop_type": "execution",
         "depth": 1,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.655200",
+        "timestamp": "2026-08-04T15:37:11.454351",
         "event": "spawn_approved",
-        "graph_id": "344833c5",
-        "parent": "ae21c158",
+        "graph_id": "ff40cdeb",
+        "parent": "c6db7736",
         "loop_type": "verification",
         "depth": 2,
         "reason": "low_confidence_verification"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.655566",
+        "timestamp": "2026-08-04T15:37:11.454694",
         "event": "spawn_approved",
-        "graph_id": "d08e4cac",
-        "parent": "ae21c158",
+        "graph_id": "f0e87600",
+        "parent": "c6db7736",
         "loop_type": "execution",
         "depth": 2,
         "reason": "correction"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.656816",
+        "timestamp": "2026-08-04T15:37:11.456242",
         "event": "correction_completed",
-        "graph_id": "ae21c158",
-        "corrected_graph": "d08e4cac",
+        "graph_id": "c6db7736",
+        "corrected_graph": "f0e87600",
         "new_confidence": 0.8400000000000001
       },
       {
-        "timestamp": "2026-08-04T15:34:12.658378",
+        "timestamp": "2026-08-04T15:37:11.458401",
         "event": "spawn_approved",
-        "graph_id": "5946cbc8",
-        "parent": "ae21c158",
+        "graph_id": "1e36c87d",
+        "parent": "c6db7736",
         "loop_type": "execution",
         "depth": 2,
         "reason": "decomposition"
       },
       {
-        "timestamp": "2026-08-04T15:34:12.662831",
+        "timestamp": "2026-08-04T15:37:11.463884",
         "event": "run_finished",
-        "graph_id": "f4c7f82c",
+        "graph_id": "a0793b4b",
         "status": "completed",
         "llm_calls": 6
       }
