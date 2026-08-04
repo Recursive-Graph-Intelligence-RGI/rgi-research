@@ -130,14 +130,75 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
 
 
 async def maybe_spawn_verification(graph: CognitiveGraph, harness: Harness) -> None:
-    """Task 13 implements the body. Kept as a hook so phase 4 reads final."""
-    return None
+    """Under-confident findings get challenged by a dedicated VERIFICATION
+    subgraph — the ACC firing on conflict. Trigger: any COMPLETED reasoning
+    node below the confidence threshold (deterministic, auditable)."""
+    if not graph.policy.require_verification:
+        return
+    if any(n.type == NodeType.VERIFICATION for n in graph.nodes.values()):
+        return
+    for sid in graph.subgraph_ids:
+        child = harness.get_graph(sid)
+        if child is not None and child.loop_type == LoopType.VERIFICATION:
+            return
+    weak_reasoning = any(
+        n.type == NodeType.REASONING and n.state == NodeState.COMPLETED
+        and n.confidence < graph.state.confidence_threshold
+        for n in graph.nodes.values()
+    )
+    if not weak_reasoning:
+        return
+    findings = _collect_findings(graph)
+    if not findings:
+        return
+    v_id = await harness.request_subgraph_spawn(graph.id, {
+        "loop_type": LoopType.VERIFICATION,
+        "objective": f"Verify: {graph.state.objective}",
+        "reason": "low_confidence_verification",
+        "target_findings": findings,
+    })
+    if v_id:
+        v_graph = await execute_graph(harness.get_graph(v_id), harness)
+        merge_subgraph_results(graph, v_graph)
 
 
 async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
                              challenge: dict, harness: Harness) -> None:
-    """Task 13 implements topological correction. Hook for phase 2."""
-    return None
+    """Topological correction: a NEW execution graph with stricter
+    parameters is born under the challenged graph's parent. The original
+    pathway is marked CORRECTING, then strengthened on success."""
+    parent = harness.get_graph(graph.parent_graph_id)
+    if parent is None:
+        return
+    child_id = await harness.request_subgraph_spawn(parent.id, {
+        "loop_type": LoopType.EXECUTION,
+        "objective": f"STRICT RE-ANALYSIS: {parent.state.objective}",
+        "reason": "correction",
+        "target_path": harness.config.target_path,
+    })
+    if not child_id:
+        harness.audit.record("correction_rejected", graph_id=parent.id)
+        return
+    corrected = await execute_graph(harness.get_graph(child_id), harness)
+    corrected_confidence = _avg_confidence(corrected)
+
+    now = datetime.now().isoformat()
+    for n in parent.nodes.values():
+        if (n.type == NodeType.REASONING and n.state == NodeState.COMPLETED
+                and n.confidence < parent.state.confidence_threshold):
+            n.state = NodeState.CORRECTING
+            n.history.append({"state": NodeState.CORRECTING.value, "timestamp": now,
+                              "reason": "verification_challenged"})
+            n.confidence = corrected_confidence
+            n.state = NodeState.COMPLETED
+            n.history.append({"state": NodeState.COMPLETED.value, "timestamp": now,
+                              "correction_success": True,
+                              "confidence": corrected_confidence})
+    parent.state.correction_count += 1
+    merge_subgraph_results(parent, corrected)
+    harness.audit.record("correction_completed", graph_id=parent.id,
+                         corrected_graph=child_id,
+                         new_confidence=corrected_confidence)
 
 
 async def verify_findings(node: CognitiveNode, target_nodes: list,
