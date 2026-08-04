@@ -1,8 +1,8 @@
-# RGI v0.1 — Status Report & Evaluation Framework
+# RGI — Status Report & Evaluation Framework
 
-**Date:** 2026-08-04
-**Status:** v0.1 COMPLETE (merged to `main`, 46/46 tests green)
-**Next gate:** Live LLM run (blocked only on `RGI_LLM_API_KEY`)
+**Date:** 2026-08-04 (covers v0.1 build + v0.2 testing sprint)
+**Status:** v0.1 COMPLETE; v0.2 testing sprint COMPLETE (merged to `main`, 64/64 tests green)
+**Next gate:** 100+ file benchmark (requires embedding-based activation)
 
 ---
 

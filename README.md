@@ -35,28 +35,43 @@ graph TD
 
 ```bash
 pip install -r requirements.txt
+
+# The demo: one objective -> recursive subgraphs -> report
 python -m rgi analyze sample_project --objective "Analyze authentication security" --mock
+
+# The experiment: RGI vs single-shot baseline vs fixed workflow (Control B)
+python -m rgi compare sample_project --objective "Analyze authentication security" --mock
+python -m rgi eval --objective "Analyze code security" --runs 3 --mock
 ```
 
 `--mock` uses a deterministic fixture-driven LLM — no API key needed, fully
-reproducible. The run prints and writes `report.json` (findings, confidence
-scores, graph topology used, correction history); per-graph states and the
-audit trail land in `data/` (gitignored). A committed `report.json` from a
-mock run is included as example output.
+reproducible. `analyze` prints and writes `report.json`; `compare` writes
+`compare.json`; `eval` runs the target × condition × repetition matrix against
+ground truth and writes `eval_report.json`. Per-graph states and the audit
+trail land in `data/` (gitignored). Committed example outputs live in
+`examples/`.
 
 ## Real LLM usage
 
 ```bash
 export RGI_LLM_API_KEY=sk-...
 # optional overrides:
-export RGI_LLM_BASE_URL=...   # default preset: Kimi's OpenAI-compatible endpoint
+export RGI_LLM_BASE_URL=...   # any OpenAI-compatible endpoint (tested: DeepSeek)
 export RGI_LLM_MODEL=...
 
-python -m rgi analyze sample_project --objective "Analyze authentication security"
+python -m rgi eval --objective "Analyze code security" --runs 3 --target vuln_app_3
 ```
 
 Any OpenAI-compatible chat-completions endpoint works (JSON mode). Without
-`RGI_LLM_API_KEY` the CLI falls back to the mock client.
+`RGI_LLM_API_KEY` every command falls back to the mock client.
+
+## Current status
+
+See `docs/reports/2026-08-04-rgi-status-report.md` — four graded live
+experiments, the four-tier evaluation framework, and the honest verdict:
+self-correction proven live; topology advantage unproven at small scale
+(ceiling effect); decisive experiment is a 100+ file target requiring
+embedding-based activation.
 
 ## Brain mapping — the v0.2/v0.3 North Star
 
@@ -81,7 +96,7 @@ stable interfaces; v0.2/v0.3 evolve the dynamics without changing them.
 pytest -v
 ```
 
-The suite (16 files, all on the mock LLM) proves the core claims:
+The suite (24 test files, 64 tests, all on the mock LLM) proves the core claims:
 
 - `tests/test_recursive_spawn.py` — **the safety proof**: a chain of 5 spawn
   attempts with `max_depth=2` creates only depth-0 and depth-1 graphs; the
@@ -90,23 +105,36 @@ The suite (16 files, all on the mock LLM) proves the core claims:
   verification spawns a NEW execution graph, the original node passes through
   CORRECTING, and aggregate confidence rises.
 - `tests/test_harness_limits.py` — harness rejects spawns past the node/LLM
-  budget and depth caps.
+  budget and depth caps; verification LLM calls are budget-gated too.
 - `tests/test_governance.py` — a tool call with a path outside the analysis
   target is denied and logged.
 - `tests/test_e2e_mock.py` — full demo scenario completes < 5 min and < 20
   LLM calls and produces a valid `report.json`.
-- `tests/test_activation.py`, `test_audit.py`, `test_context_builder.py`,
-  `test_engine.py`, `test_learning.py`, `test_llm_client.py`, `test_loops.py`,
-  `test_models.py`, `test_perception.py`, `test_sample_project.py`,
-  `test_tools.py` — unit coverage of each subsystem.
+- `tests/test_eval.py`, `test_baseline.py`, `test_fixed_workflow.py` — the
+  experiment harness: single-shot baseline, fixed-workflow Control B, and the
+  target × condition × repetition eval matrix with ground-truth scoring.
+- `tests/test_seeding.py`, `test_grounding.py`, `test_live_readiness.py` —
+  v0.2 hardening: synonym-expanded activation, code-grounded execution,
+  exception containment, confidence clamping.
+- `tests/test_benchmarks.py`, `test_hard_benchmark.py` — benchmark targets and
+  ground truth are scorable, including the 15-file cross-file vuln_app_3.
+- Unit coverage per subsystem: `test_activation.py`, `test_audit.py`,
+  `test_context_builder.py`, `test_engine.py`, `test_learning.py`,
+  `test_llm_client.py`, `test_loops.py`, `test_models.py`,
+  `test_perception.py`, `test_sample_project.py`, `test_tools.py`.
 
 ## Roadmap
 
-- **v0.2** — real spreading activation (beyond keyword seeds), parallel
-  cross-inhibition between loops, edge-weight learning from recorded pathways.
-- **v0.3** — inhibition-default harness (the basal-ganglia stance), neurogenesis-
-  style spawning, Hebbian plasticity on edges; learned activation/spawn policies
-  gated on accumulated pathway data.
+- **v0.2 (in progress)** — DONE: grounded planning/execution, salience-gated
+  spawning, synonym-expanded seeding, exception containment, baseline +
+  Control B + eval matrix, three benchmark targets. NEXT: embedding-based
+  spreading activation (replaces keyword/synonym crutch), report hygiene
+  (findings dedup, per-file attribution), then the 100+ file benchmark — the
+  decisive topology experiment (see status report, Run 4 verdict).
+- **v0.3** — inhibition-default harness (the basal-ganglia stance), parallel
+  cross-inhibition between loops, neurogenesis-style spawning, Hebbian
+  plasticity on edges; learned activation/spawn policies gated on accumulated
+  pathway data.
 - **Phase 2** — FortSignal live integration per design doc §3.7
   (`FortSignalGate` behind the `GovernanceGate` protocol: deterministic
   enforcement, signed receipts into the audit log) and the protocol spec.
@@ -114,8 +142,13 @@ The suite (16 files, all on the mock LLM) proves the core claims:
 ## Layout
 
 ```
-rgi/            core/ loops/ memory/ perception/ reasoning/ tools/ cli.py
-sample_project/ 4-file Python app with intentional auth vulnerabilities
+rgi/            core/ loops/ memory/ perception/ reasoning/ tools/
+                cli.py  eval.py  baseline.py  fixed_workflow.py
+sample_project/ 4-file app with planted auth vulnerabilities (target 1)
+benchmarks/     vuln_app_2 (4 vuln classes), vuln_app_3 (15 files,
+                cross-file vulns), ground_truth/ scoring files
+examples/       committed report.json + compare.json from mock runs
 tests/          pytest + pytest-asyncio, all on the mock LLM
+docs/           specs, plans, and the status report (see docs/README.md)
 data/           graph states, pathways, audit.jsonl (gitignored)
 ```
