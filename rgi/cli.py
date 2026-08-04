@@ -9,6 +9,7 @@ import os
 import sys
 from pathlib import Path
 
+from rgi.baseline import MOCK_CAVEAT, run_baseline
 from rgi.core.engine import execute_graph
 from rgi.core.harness import Harness, HarnessConfig
 from rgi.core.models import CognitiveGraph, GraphPolicy, GraphState, LoopType
@@ -94,6 +95,27 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     return report
 
 
+async def run_comparison(args) -> dict:
+    use_mock = args.mock or not os.environ.get("RGI_LLM_API_KEY")
+    baseline_llm = MockLLMClient() if use_mock else LLMClient(model=args.model)
+    baseline = await run_baseline(args.path, args.objective, baseline_llm)
+    rgi_report = await run_analysis(
+        args.path, args.objective, "report.json",
+        args.mock, args.provider, args.model, args.max_llm_calls,
+    )
+    return {
+        "objective": args.objective,
+        "caveat": MOCK_CAVEAT if use_mock else "",
+        "rgi": rgi_report,
+        "baseline": baseline,
+        "deltas": {
+            "findings_count": len(rgi_report["findings"]) - len(baseline["findings"]),
+            "llm_calls": rgi_report["llm_calls"] - baseline["llm_calls"],
+            "corrections": rgi_report["corrections_made"],
+        },
+    }
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="rgi")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -105,6 +127,14 @@ def main(argv=None) -> int:
     analyze.add_argument("--provider", default="kimi")
     analyze.add_argument("--model", default=None)
     analyze.add_argument("--max-llm-calls", type=int, default=20)
+    compare = sub.add_parser("compare", help="Run RGI vs single-agent baseline on the same target")
+    compare.add_argument("path")
+    compare.add_argument("--objective", required=True)
+    compare.add_argument("--output", default="compare.json")
+    compare.add_argument("--mock", action="store_true")
+    compare.add_argument("--provider", default="kimi")
+    compare.add_argument("--model", default=None)
+    compare.add_argument("--max-llm-calls", type=int, default=20)
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
@@ -114,6 +144,11 @@ def main(argv=None) -> int:
         ))
         print(json.dumps(report, indent=2))
         return 0 if report["status"] == "completed" else 1
+    if args.command == "compare":
+        comparison = asyncio.run(run_comparison(args))
+        print(json.dumps(comparison, indent=2))
+        Path(args.output).write_text(json.dumps(comparison, indent=2))
+        return 0 if comparison["rgi"]["status"] == "completed" else 1
     return 2
 
 
