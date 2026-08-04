@@ -38,13 +38,14 @@ Many complex systems in nature and computing are graph-based. RGI explores wheth
 
 A high-level RGI system may contain:
 
+```
 Global Intelligence Graph
-
-- Planning Graph
-- Knowledge Graph
-- Execution Graph
-- Governance Graph
-- Learning Graph
+├── Planning Graph
+├── Knowledge Graph
+├── Execution Graph
+├── Governance Graph
+└── Learning Graph
+```
 
 Each component may contain additional specialized subgraphs.
 

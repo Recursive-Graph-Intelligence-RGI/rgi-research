@@ -1,6 +1,6 @@
-Recursive Graph Intelligence: A Self-Organizing Architecture for Multi-Agent Systems Through Nested Graph Computation and Adaptive Harness Control
+# Recursive Graph Intelligence: A Self-Organizing Architecture for Multi-Agent Systems Through Nested Graph Computation and Adaptive Harness Control
 
-Abstract (draft)
+## Abstract (draft)
 
 Current agentic AI systems primarily rely on linear workflows, directed graphs, or centralized orchestration models where agents execute predefined tasks under fixed control structures. As autonomous systems become more complex, these architectures face limitations in scalability, adaptability, verification, and governance.
 
@@ -10,16 +10,17 @@ The architecture introduces a graph-of-graphs model consisting of specialized pa
 
 We propose that Recursive Graph Intelligence provides a foundation for scalable, governable, and adaptive autonomous systems capable of operating in complex real-world environments.
 
-1. Introduction
+## 1. Introduction
 
-The Problem
+### The Problem
 
 Current AI agent architectures have several limitations:
 
-1. Static orchestration
+**1. Static orchestration**
 
 Most systems are:
 
+```
 User Goal
     ↓
 Planner
@@ -29,125 +30,113 @@ Agent
 Tool
     ↓
 Result
+```
+
 The workflow is mostly predetermined.
 
-2. Centralized intelligence
+**2. Centralized intelligence**
 
 A single agent often becomes the bottleneck:
 
+```
           Agent
         /   |   \
-    Tool Tool Tool
+    Tool  Tool  Tool
+```
+
 Failure of the central agent affects the entire system.
 
-3. Limited self-adaptation
+**3. Limited self-adaptation**
 
 Most systems cannot:
 
-create new reasoning structures
+- create new reasoning structures
+- remove ineffective processes
+- reorganize themselves
+- evolve their architecture
 
-remove ineffective processes
+## 2. Recursive Graph Intelligence Model
 
-reorganize themselves
-
-evolve their architecture
-
-2. Recursive Graph Intelligence Model
-
-Definition
+### Definition
 
 A Recursive Graph Intelligence system is:
 
-A computational system where graphs represent cognitive, operational, informational, and governance processes, and where each graph may contain recursively nested subgraphs capable of independent execution and adaptation.
+> A computational system where graphs represent cognitive, operational, informational, and governance processes, and where each graph may contain recursively nested subgraphs capable of independent execution and adaptation.
 
-3. The Fundamental Unit: The Cognitive Graph
+## 3. The Fundamental Unit: The Cognitive Graph
 
 A graph consists of:
 
+```
 Graph = Nodes + Edges + State + Policy
+```
+
 A node represents:
 
-reasoning process
-
-memory object
-
-tool execution
-
-verification process
-
-governance decision
-
-simulation
+- reasoning process
+- memory object
+- tool execution
+- verification process
+- governance decision
+- simulation
 
 Edges represent:
 
-dependencies
-
-information flow
-
-feedback loops
-
-state transitions
+- dependencies
+- information flow
+- feedback loops
+- state transitions
 
 Example:
 
+```
 Research Graph
+    │
+    ▼
+Literature Node
+    │
+    ▼
+Hypothesis Node
+    │
+    ▼
+Simulation Node ──contains──► Simulation Graph
+    │                           ├── Physics Model
+    ▼                           ├── Environment Model
+Verification Node               └── Outcome Evaluator
+```
 
-       Literature Node
-              |
-              ↓
-       Hypothesis Node
-              |
-              ↓
-       Simulation Node
-              |
-              ↓
-       Verification Node
-The Simulation Node itself can become:
-
-Simulation Graph
-
-    Physics Model
-          |
-    Environment Model
-          |
-    Outcome Evaluator
-4. Nested Graph Architecture
+## 4. Nested Graph Architecture
 
 The core innovation:
 
+```
 Global Intelligence Graph
+├── Planning Graph
+├── Knowledge Graph
+├── Execution Graph
+├── Governance Graph
+└── Learning Graph
+```
 
-      |
-      |
-      +---- Planning Graph
-      |
-      +---- Knowledge Graph
-      |
-      +---- Execution Graph
-      |
-      +---- Governance Graph
-      |
-      +---- Learning Graph
 Each graph maintains:
 
-local state
+- local state
+- objectives
+- memory
+- policies
+- internal loops
 
-objectives
-
-memory
-
-policies
-
-internal loops
-
-5. Parallel Agentic Loops
+## 5. Parallel Agentic Loops
 
 Traditional:
 
+```
 Think → Act → Observe → Repeat
+```
+
 RGI:
 
+```
 Think Loop
      ↕
 Knowledge Loop
@@ -159,170 +148,125 @@ Verification Loop
 Governance Loop
      ↕
 Learning Loop
+```
+
 The system becomes a distributed feedback organism.
 
-6. The Harness Layer
+## 6. The Harness Layer
 
 The harness is the equivalent of an operating system scheduler for intelligence.
 
-Responsibilities:
+**Responsibilities:**
 
-Resource management
+Resource management:
 
-compute allocation
+- compute allocation
+- memory allocation
+- latency limits
 
-memory allocation
+Safety:
 
-latency limits
+- permission boundaries
+- policy enforcement
+- human approval requirements
 
-Safety
+Optimization:
 
-permission boundaries
+- spawn new graphs
+- merge graphs
+- terminate ineffective graphs
 
-policy enforcement
-
-human approval requirements
-
-Optimization
-
-spawn new graphs
-
-merge graphs
-
-terminate ineffective graphs
-
-7. Graph Evolution
+## 7. Graph Evolution
 
 A major research question:
 
-Can an AI system improve by modifying its own computational topology?
+> Can an AI system improve by modifying its own computational topology?
 
 Example:
 
-Initial:
+```
+Initial:                    After observation:
 
-Coding Graph
+Coding Graph                Coding Graph
+    │                           │
+  Planner                     Planner
+    │                           │
+    ▼                           ▼
+   Coder                  Security Review Graph
+    │                           │
+    ▼                           ▼
+  Tester                      Coder
+                              │
+                              ▼
+                          Testing Graph
+                              │
+                              ▼
+                          Optimization Graph
+```
 
-Planner
- |
-Coder
- |
-Tester
-After observation:
-
-Coding Graph
-
-Planner
- |
-Security Review Graph
- |
-Coder
- |
-Testing Graph
- |
-Optimization Graph
 The system evolves its architecture.
 
-8. Mathematical Model
+## 8. Mathematical Model
 
 A graph state could be represented:
 
-[
-G_t = (V,E,S,P)
-]
+```
+G_t = (V, E, S, P)
+```
 
 where:
 
-V = nodes
-
-E = connections
-
-S = state
-
-P = policies
+- V = nodes
+- E = connections
+- S = state
+- P = policies
 
 The transition:
 
-[
-G_{t+1}=F(G_t,O_t,R_t,C_t)
-]
+```
+G_{t+1} = F(G_t, O_t, R_t, C_t)
+```
 
 where:
 
-O = observations
-
-R = resources
-
-C = constraints
+- O = observations
+- R = resources
+- C = constraints
 
 The system continuously updates its topology.
 
-9. Research Questions
+## 9. Research Questions
 
 The paper would propose experiments:
 
-RQ1:
+- **RQ1:** Does recursive graph decomposition improve complex task performance?
+- **RQ2:** Can adaptive graph creation reduce computational cost?
+- **RQ3:** Does governance embedded as a graph improve safety?
+- **RQ4:** Can graph evolution outperform fixed workflows?
 
-Does recursive graph decomposition improve complex task performance?
-
-RQ2:
-
-Can adaptive graph creation reduce computational cost?
-
-RQ3:
-
-Does governance embedded as a graph improve safety?
-
-RQ4:
-
-Can graph evolution outperform fixed workflows?
-
-10. Implementation Prototype
+## 10. Implementation Prototype
 
 A prototype could use:
 
-Graph database:
+- Graph database: Neo4j / Apache AGE
+- Agent runtime: LangGraph-style execution model
+- Event bus: Kafka / NATS
+- Memory: vector + symbolic graph hybrid
+- Governance: policy graph
+- Execution: sandboxed tools
 
-Neo4j / Apache AGE
-
-Agent runtime:
-
-LangGraph-style execution model
-
-Event bus:
-
-Kafka / NATS
-
-Memory:
-
-vector + symbolic graph hybrid
-
-Governance:
-
-policy graph
-
-Execution:
-
-sandboxed tools
-
-11. Relationship to Existing Fields
+## 11. Relationship to Existing Fields
 
 The paper would position RGI at the intersection of:
 
-Multi-agent systems
+- Multi-agent systems
+- Graph neural networks
+- Cognitive architectures
+- Distributed systems
+- Control theory
+- Evolutionary computation
+- Artificial life
 
-Graph neural networks
+### Possible contribution statement
 
-Cognitive architectures
-
-Distributed systems
-
-Control theory
-
-Evolutionary computation
-
-Artificial life
-
-Possible contribution statement
-
-We introduce Recursive Graph Intelligence (RGI), a graph-native architecture for autonomous systems where reasoning, memory, execution, and governance are represented as dynamically evolving recursive graphs. Unlike existing agent frameworks that orchestrate agents through fixed workflows, RGI enables systems to modify their own computational structure through graph creation, pruning, and adaptation.
+> We introduce Recursive Graph Intelligence (RGI), a graph-native architecture for autonomous systems where reasoning, memory, execution, and governance are represented as dynamically evolving recursive graphs. Unlike existing agent frameworks that orchestrate agents through fixed workflows, RGI enables systems to modify their own computational structure through graph creation, pruning, and adaptation.

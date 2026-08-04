@@ -12,33 +12,27 @@ An RGI system is composed of multiple interacting graphs operating in parallel u
 
 ---
 
-# 2. System Model
+## 2. System Model
 
 A high-level RGI architecture:
 
-             Global Intelligence Graph
-
-                     |
-    -----------------------------------------
-    |              |             |            |
-    v              v             v            v
-Planning       Knowledge      Execution    Governance 
-
-                     |
-                     v
-
-              Learning Graph
-
+```
+                Global Intelligence Graph
+                          │
+    ┌──────────┬──────────┼──────────┬──────────┐
+    ▼          ▼          ▼          ▼          ▼
+ Planning  Knowledge  Execution  Governance  Learning
+```
 
 Each graph can contain additional recursive subgraphs.
 
 ---
 
-# 3. Graph Definition
+## 3. Graph Definition
 
 An RGI graph consists of four fundamental components:
 
-## Nodes
+### Nodes
 
 Nodes represent computational entities.
 
@@ -52,9 +46,7 @@ Examples:
 - policies
 - decision systems
 
----
-
-## Edges
+### Edges
 
 Edges represent relationships between nodes.
 
@@ -66,9 +58,7 @@ Examples:
 - state transitions
 - communication pathways
 
----
-
-## State
+### State
 
 Each graph maintains state including:
 
@@ -78,9 +68,7 @@ Each graph maintains state including:
 - resource usage
 - previous outcomes
 
----
-
-## Policies
+### Policies
 
 Policies define:
 
@@ -91,7 +79,7 @@ Policies define:
 
 ---
 
-# 4. Recursive Graphs
+## 4. Recursive Graphs
 
 The defining property of RGI is recursive composition.
 
@@ -99,57 +87,59 @@ A graph may contain specialized internal graphs.
 
 Example:
 
+```
 Execution Graph
-    |
-    v
-Software Development Graph  
-    |
-|      |        |
-Code Testing Security
-Graph Graph Graph    
+    │
+    ▼
+Software Development Graph
+    │
+    ┌──────────┬──────────┬──────────┬──────────┐
+    ▼          ▼          ▼          ▼          ▼
+   Code      Testing    Security    Deploy     Review
+   Graph      Graph      Graph      Graph      Graph
+```
 
- 
 This allows systems to dynamically create specialized computational structures.
 
 ---
 
-# 5. Parallel Agentic Loops
+## 5. Parallel Agentic Loops
 
 Traditional agents often follow:
 
+```
 Reason → Act → Observe → Repeat
-
+```
 
 RGI expands this into multiple simultaneous feedback loops:
 
+```
 Planning Loop
-|
-v
+    │
+    ▼
 Execution Loop
-|
-v
+    │
+    ▼
 Verification Loop
-|
-v
+    │
+    ▼
 Learning Loop
-|
-v
+    │
+    ▼
 Architecture Evolution
-
+```
 
 Each loop continuously exchanges information with other graphs.
 
 ---
 
-# 6. The Harness Layer
+## 6. The Harness Layer
 
 The Harness Layer coordinates the entire system.
 
 It functions as an operating system for autonomous computation.
 
-Responsibilities:
-
-## Resource Management
+### Resource Management
 
 Controls:
 
@@ -158,7 +148,7 @@ Controls:
 - latency budgets
 - model selection
 
-## Governance
+### Governance
 
 Controls:
 
@@ -167,7 +157,7 @@ Controls:
 - policy evaluation
 - risk management
 
-## Graph Lifecycle
+### Graph Lifecycle
 
 Manages:
 
@@ -178,7 +168,7 @@ Manages:
 
 ---
 
-# 7. Governance Graph
+## 7. Governance Graph
 
 Governance is treated as a native computational component.
 
@@ -186,70 +176,74 @@ Instead of evaluating actions after execution, governance participates in decisi
 
 Example:
 
+```
 Proposed Action
-   |
+    │
+    ▼
 Governance Graph
-   |
-Risk
-Policy
-Authorization
-Verification
-   |
+    │
+    ├── Risk
+    ├── Policy
+    ├── Authorization
+    └── Verification
+    │
+    ▼
 Approved Action
+```
 
 ---
 
-# 8. Adaptive Evolution
+## 8. Adaptive Evolution
 
 RGI systems may modify their own computational topology.
 
 Example:
 
-Initial:
-Planner
-|
-Executor
-|
-Verifier
+```
+Initial:                After learning:
 
-After learning:
-Planner
-|
-Security Review Graph
-|
-Executor
-|
-Testing Graph
-|
-Optimization Graph
+Planner                 Planner
+    │                       │
+    ▼                       ▼
+Executor                Security Review Graph
+    │                       │
+    ▼                       ▼
+Verifier                Executor
+                            │
+                            ▼
+                        Testing Graph
+                            │
+                            ▼
+                        Optimization Graph
+```
 
 The architecture adapts based on performance and feedback.
 
 ---
 
-# 9. Research Questions
+## 9. Research Questions
 
 Important areas of investigation:
 
-## Intelligence
+### Intelligence
 
 Can intelligence emerge from interactions between specialized graphs?
 
-## Adaptation
+### Adaptation
 
 Can systems improve by modifying their computational structures?
 
-## Efficiency
+### Efficiency
 
 Can recursive decomposition improve complex task execution?
 
-## Safety
+### Safety
 
 Can governance graphs provide stronger control over autonomous systems?
 
 ---
 
-# 10. Prototype Goals
+## 10. Prototype Goals
 
 An initial RGI prototype should demonstrate:
 
@@ -264,7 +258,7 @@ The goal is not to build a complete autonomous system initially, but to validate
 
 ---
 
-# 11. Future Directions
+## 11. Future Directions
 
 Potential research areas:
 
@@ -273,13 +267,3 @@ Potential research areas:
 - self-organizing agent systems
 - human-in-the-loop governance
 - adaptive computational ecosystems
-Commit message:
-Add RGI architecture specification
-After this file, the repository will have a real structure:
-rgi-research
-
-README.md
-   ↓
-docs/vision.md
-   ↓
-docs/architecture.md
