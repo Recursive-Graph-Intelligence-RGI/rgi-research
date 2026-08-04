@@ -135,6 +135,14 @@ def main(argv=None) -> int:
     compare.add_argument("--provider", default="kimi")
     compare.add_argument("--model", default=None)
     compare.add_argument("--max-llm-calls", type=int, default=20)
+    evaluate = sub.add_parser("eval", help="Run the target x condition x repetition experiment matrix")
+    evaluate.add_argument("--objective", required=True)
+    evaluate.add_argument("--runs", type=int, default=3)
+    evaluate.add_argument("--output", default="eval_report.json")
+    evaluate.add_argument("--mock", action="store_true")
+    evaluate.add_argument("--provider", default="kimi")
+    evaluate.add_argument("--model", default=None)
+    evaluate.add_argument("--max-llm-calls", type=int, default=20)
     args = parser.parse_args(argv)
 
     if args.command == "analyze":
@@ -149,6 +157,13 @@ def main(argv=None) -> int:
         print(json.dumps(comparison, indent=2))
         Path(args.output).write_text(json.dumps(comparison, indent=2) + "\n")
         return 0 if comparison["rgi"]["status"] == "completed" else 1
+    if args.command == "eval":
+        from rgi.eval import run_eval
+        result = asyncio.run(run_eval(args.objective, args.runs, args.mock,
+                                      args.provider, args.model, args.max_llm_calls))
+        print(json.dumps(result, indent=2))
+        Path(args.output).write_text(json.dumps(result, indent=2) + "\n")
+        return 0
     return 2
 
 
