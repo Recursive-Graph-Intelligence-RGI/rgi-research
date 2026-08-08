@@ -59,3 +59,27 @@ async def test_stagnation_guard_fails_empty_graph(tmp_path):
     done = await execute_graph(g, h)
     assert done.state.status == "failed"
     assert done.state.iteration < done.state.max_iterations  # did not spin
+
+
+async def test_spawn_round_cap_completes_chatty_graph(tmp_path):
+    """Regression (live Run 5): a chatty model suggests subgraphs on every
+    response, and merged children re-seed spawn_suggestions. Without a
+    spawn-round cap the graph spawns until max_iterations and dies 'failed'
+    without consolidating. With the cap it must stop spawning, consolidate,
+    and complete — recording a spawn_inhibited audit event."""
+    chatty = {"finding": "something", "confidence": 0.9,
+              "suggested_subgraphs": ["look deeper"]}
+    h = Harness(HarnessConfig(data_dir=str(tmp_path),
+                              llm_client=MockLLMClient(script={"": [chatty]})))
+    root = CognitiveGraph(loop_type=LoopType.PLANNING,
+                          state=GraphState(objective="analyze anything"),
+                          policy=GraphPolicy(require_verification=False))
+    initialize_graph_nodes(root, {"objective": "analyze anything"})
+    h.graphs[root.id] = root
+
+    done = await execute_graph(root, h)
+
+    assert done.state.status == "completed"
+    inhibited = [e for e in h.audit.events if e["event"] == "spawn_inhibited"]
+    assert inhibited, "expected spawn_inhibited audit event once cap hit"
+    assert inhibited[0]["reason"] == "max_spawn_rounds"

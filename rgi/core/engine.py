@@ -11,9 +11,11 @@ from rgi.core.models import (
 )
 
 ACTIVATION_THRESHOLD = 0.5
+MAX_SPAWN_ROUNDS = 2  # per-graph; chatty models re-seed suggestions every merge
 
 
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
+    spawn_rounds = 0
     while graph.state.status == "running" and graph.state.iteration < graph.state.max_iterations:
         if harness.time_exceeded():
             graph.state.status = "failed"
@@ -92,28 +94,41 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
             progressed = True
 
         # PHASE 3: GRAPH EVOLUTION — recursive spawning, siblings concurrent
+        # Chatty models suggest subgraphs on every response; merged children
+        # lift more. Without a round cap the graph spawns until max_iterations
+        # and dies "failed" without consolidating (live Run 5 diagnosis).
         if graph.policy.auto_spawn and should_spawn_subgraphs(graph):
-            proposals = generate_spawn_proposals(graph, harness)
-            child_ids = []
-            for proposal in proposals:
-                child_id = await harness.request_subgraph_spawn(graph.id, proposal)
-                if child_id:
-                    child_ids.append(child_id)
-            async def _run_child(child):
-                try:
-                    return await execute_graph(child, harness)
-                except Exception as exc:  # containment: failed child, not lost run
-                    child.state.status = "failed"
-                    harness.audit.record("child_execution_error", graph_id=child.id,
-                                         error=str(exc))
-                    return child
+            if spawn_rounds >= MAX_SPAWN_ROUNDS:
+                dropped = graph.memory_snapshot.pop("spawn_suggestions", [])
+                for n in graph.nodes.values():
+                    if n.type == NodeType.REASONING:
+                        n.metadata["spawn_consumed"] = True
+                harness.audit.record("spawn_inhibited", graph_id=graph.id,
+                                     reason="max_spawn_rounds", dropped=len(dropped))
+            else:
+                proposals = generate_spawn_proposals(graph, harness)
+                child_ids = []
+                for proposal in proposals:
+                    child_id = await harness.request_subgraph_spawn(graph.id, proposal)
+                    if child_id:
+                        child_ids.append(child_id)
 
-            children = [harness.get_graph(cid) for cid in child_ids]
-            if children:
-                results = await asyncio.gather(*(_run_child(c) for c in children))
-                for child in results:
-                    merge_subgraph_results(graph, child)
-                progressed = True
+                async def _run_child(child):
+                    try:
+                        return await execute_graph(child, harness)
+                    except Exception as exc:  # containment: failed child, not lost run
+                        child.state.status = "failed"
+                        harness.audit.record("child_execution_error", graph_id=child.id,
+                                             error=str(exc))
+                        return child
+
+                children = [harness.get_graph(cid) for cid in child_ids]
+                if children:
+                    spawn_rounds += 1
+                    results = await asyncio.gather(*(_run_child(c) for c in children))
+                    for child in results:
+                        merge_subgraph_results(graph, child)
+                    progressed = True
 
         # PHASE 4: VERIFICATION & CONSOLIDATION (verification spawn = Task 13)
         # NOTE: maybe_spawn_verification + correction can leave NEW pending
