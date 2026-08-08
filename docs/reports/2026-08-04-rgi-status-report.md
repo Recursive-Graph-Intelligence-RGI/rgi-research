@@ -301,8 +301,64 @@ Cost note: RGI spent 30 calls to match what 1 call achieved. At small scale,
 topology is a tax; the bet is that it becomes insurance at large scale.
 ```
 
+### Run 5 — small-model context-pressure matrix (vuln_app_3, local Ollama)
+
+**Model:** `nemotron-3-nano:4b` (local, free; original partial run used an
+unrecorded small model — methodology bug, fixed here). RGI condition ran with
+`--embed` (nomic-embed-text) after keyword seeding produced a zero-entity
+world model for the generic objective (§4.1 confirmed live: strong models
+improvise a decomposition anyway; a 4B model answers "no code provided" and
+finishes in 1 call). Fixes landed mid-run: per-graph spawn-round cap
+(`c39cb65`), configurable LLM timeout (`854f67f`), empty-key auth header
+(`f9d434e`).
+
+```
+Tier 0: FAILURES — 3/3 RGI runs status "failed" on time_limit_exceeded
+        (harness max_seconds=300). Controls have NO equivalent limit:
+        baseline/fixed never run under the harness. Asymmetric budget —
+        see fairness note below.
+Tier 1: rgi recall 0.467 (0.6/0.2/0.6) ❌ | calls 15.7 | corrections 0 ❌
+Tier 2: fixed 0.800 (stable 0.8×3) > single 0.600 (1.0/0.2/0.6)
+        > rgi 0.467 — RGI LOSES to both controls at this pressure level ❌
+Verdict: hypothesis still unconfirmed — and this time the loss is
+informative, not a ceiling. Three distinct problems, ranked by how much
+they explain:
+  1. TIME-LIMIT ASYMMETRY (experimental fairness): RGI died at 300s
+     mid-expansion on every run; the controls were never at risk of the
+     same death. Failing runs scored on partial findings. Fix: make the
+     time budget explicit per condition (configurable max_seconds), or
+     enforce an equal wall-clock budget on controls.
+  2. SPAWN ECONOMICS (architecture): the per-graph round cap works but
+     recursion routes around it — 13–22 graphs/run, each with its own
+     2-round budget. A weak model's noisy decompositions multiply graphs
+     faster than they add findings. Fix candidate: GLOBAL spawn/node
+     budget enforced at the spawn gate (model-agnostic — a property of
+     the run, not the model). NOTE: max_total_nodes=50 was configured
+     yet 22 graphs spawned — the existing global limit does not bind at
+     the spawn gate.
+  3. ZERO CORRECTIONS, EVERYWHERE: verification never fired on any
+     condition, including runs containing visibly wrong findings
+     ("deserialize is safe" on a target with a pickle vuln). The
+     signature mechanism from Run 4 did not engage with a weak model.
+Bright spots vs the pre-fix partial run (unknown small model, artifacts
+in docs/reports/run5-small-model/): rgi recall 0.333 → 0.467 and the
+crash mode changed from spawn-until-max_iterations to clean
+time-limit termination with 68–91 findings collected per run.
+Single-shot variance (1.0/0.2/0.6) vs fixed's stability (0.8×3) is
+itself a result: on weak models, ANY structure beats none — the open
+question is whether ADAPTIVE structure can beat fixed structure.
+Next data points (in order): configurable max_seconds re-run (isolate
+fairness), global spawn budget (isolate economics), then the model
+ladder (nemotron-4b → qwen2.5:7b → DeepSeek) to map the crossover.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
 concrete seams into the full architecture. The research claim is staged, not
-won — and the next data point costs one API key.*
+won — and thanks to local Ollama models, the next data point costs nothing
+but wall-clock time. Run 5 turned the "context pressure" hypothesis into a
+controlled variable and produced the framework's first informative loss:
+RGI's adaptive topology currently loses to a fixed workflow on weak models,
+and the scorecard now says exactly why (time-limit asymmetry, per-graph cap
+routed around by recursion, zero corrections).*
