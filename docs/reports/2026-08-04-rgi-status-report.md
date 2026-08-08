@@ -1,7 +1,7 @@
 # RGI — Status Report & Evaluation Framework
 
 **Date:** 2026-08-04 (covers v0.1 build + v0.2 testing sprint)
-**Status:** v0.1 COMPLETE; v0.2 testing sprint COMPLETE (merged to `main`, 64/64 tests green)
+**Status:** v0.1 COMPLETE; v0.2 testing sprint COMPLETE; embeddings + spawn-cap merged (72/72 tests green)
 **Next gate:** 100+ file benchmark (requires embedding-based activation)
 
 ---
@@ -209,9 +209,17 @@ entities today.
 2. ~~First live run + grounding fixes~~ — DONE (Runs 1–2 in §6; merged `0929fbd`).
 3. ~~World-model seeding fix~~ — DONE (synonym expansion, §4.1 candidate 1; merged on testing sprint branch).
 4. ~~Control B + held-out target + eval runner~~ — DONE (v0.2 testing sprint: `fixed_workflow.py`, `benchmarks/vuln_app_2`, `rgi eval` matrix).
-5. **Live matrix grading** (IN PROGRESS): 2 targets × 3 conditions × 3 runs on DeepSeek → record in §6 scorecard.
+5. ~~Live matrix grading~~ — DONE (Runs 3–4 in §6 scorecard; ceiling effect on both targets).
 6. GitHub org remote + push (needs org name).
-7. v0.2 proper: report hygiene (findings dedup, per-file line attribution), embeddings for seeding (§4.1 candidate 4) if the matrix still shows seeding failures.
+7. ~~Embeddings for seeding~~ — DONE (§4.1 candidate 4; merged `df2e7e2` + `82980df`,
+   OpenAI-compatible + offline hash provider, `--embed` / `RGI_EMBED_BASE_URL`).
+8. ~~Spawn-round cap~~ — DONE (`c39cb65`; Run 5 diagnosis: chatty small models
+   re-seed spawn suggestions every merge until the graph dies `failed`).
+9. **Small-model context-pressure matrix** (IN PROGRESS): re-run vuln_app_3 ×
+   3 conditions × 3 runs on a weak local model post-spawn-cap → record as Run 5
+   in §6. Run 4 showed the discriminating variable is context pressure, not file
+   count; a weak model creates that pressure without a 100+ file benchmark.
+10. v0.2 report hygiene: findings dedup, per-file line attribution.
 
 ---
 

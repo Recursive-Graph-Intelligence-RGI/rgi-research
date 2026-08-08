@@ -99,7 +99,7 @@ stable interfaces; v0.2/v0.3 evolve the dynamics without changing them.
 pytest -v
 ```
 
-The suite (24 test files, 64 tests, all on the mock LLM) proves the core claims:
+The suite (25 test files, 72 tests, all on the mock LLM) proves the core claims:
 
 - `tests/test_recursive_spawn.py` — **the safety proof**: a chain of 5 spawn
   attempts with `max_depth=2` creates only depth-0 and depth-1 graphs; the
@@ -130,10 +130,11 @@ The suite (24 test files, 64 tests, all on the mock LLM) proves the core claims:
 
 - **v0.2 (in progress)** — DONE: grounded planning/execution, salience-gated
   spawning, synonym-expanded seeding, exception containment, baseline +
-  Control B + eval matrix, three benchmark targets. NEXT: embedding-based
-  spreading activation (replaces keyword/synonym crutch), report hygiene
-  (findings dedup, per-file attribution), then the 100+ file benchmark — the
-  decisive topology experiment (see status report, Run 4 verdict).
+  Control B + eval matrix, three benchmark targets, embedding-based spreading
+  activation, spawn-round cap (Run 5 fix). NEXT: report hygiene
+  (findings dedup, per-file attribution), then the decisive context-pressure
+  experiments — small-model matrix (Run 5) and the 100+ file benchmark
+  (see status report, Run 4 verdict).
 - **v0.3** — inhibition-default harness (the basal-ganglia stance), parallel
   cross-inhibition between loops, neurogenesis-style spawning, Hebbian
   plasticity on edges; learned activation/spawn policies gated on accumulated

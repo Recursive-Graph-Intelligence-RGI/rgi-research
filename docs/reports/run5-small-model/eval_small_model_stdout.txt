@@ -1,0 +1,105 @@
+{
+  "objective": "Analyze code security across this codebase",
+  "runs": 3,
+  "matrix": [
+    {
+      "target": "vuln_app_3",
+      "condition": "rgi",
+      "run": 0,
+      "recall": 0.4,
+      "calls": 28,
+      "corrections": 0,
+      "status": "failed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "rgi",
+      "run": 1,
+      "recall": 0.2,
+      "calls": 30,
+      "corrections": 0,
+      "status": "failed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "rgi",
+      "run": 2,
+      "recall": 0.4,
+      "calls": 27,
+      "corrections": 0,
+      "status": "failed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "single",
+      "run": 0,
+      "recall": 0.2,
+      "calls": 1,
+      "corrections": 0,
+      "status": "completed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "single",
+      "run": 1,
+      "recall": 0.2,
+      "calls": 1,
+      "corrections": 0,
+      "status": "completed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "single",
+      "run": 2,
+      "recall": 0.2,
+      "calls": 1,
+      "corrections": 0,
+      "status": "completed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "fixed",
+      "run": 0,
+      "recall": 0.6,
+      "calls": 15,
+      "corrections": 0,
+      "status": "completed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "fixed",
+      "run": 1,
+      "recall": 0.6,
+      "calls": 15,
+      "corrections": 0,
+      "status": "completed"
+    },
+    {
+      "target": "vuln_app_3",
+      "condition": "fixed",
+      "run": 2,
+      "recall": 0.6,
+      "calls": 15,
+      "corrections": 0,
+      "status": "completed"
+    }
+  ],
+  "summary": {
+    "vuln_app_3|rgi": {
+      "mean_recall": 0.333,
+      "mean_calls": 28.3,
+      "total_corrections": 0
+    },
+    "vuln_app_3|single": {
+      "mean_recall": 0.2,
+      "mean_calls": 1.0,
+      "total_corrections": 0
+    },
+    "vuln_app_3|fixed": {
+      "mean_recall": 0.6,
+      "mean_calls": 15.0,
+      "total_corrections": 0
+    }
+  }
+}
+EXIT: 0

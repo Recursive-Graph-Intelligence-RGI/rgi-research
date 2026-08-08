@@ -107,6 +107,7 @@ class LLMClient:
         self.model = model or os.environ.get("RGI_LLM_MODEL", "kimi-k2-0711-preview")
         self.on_call = on_call
         self.calls = 0
+        self.timeout = float(os.environ.get("RGI_LLM_TIMEOUT", "60"))
 
     async def reason(self, task: str, context: str) -> dict:
         import httpx
@@ -122,7 +123,7 @@ class LLMClient:
                 {"role": "user", "content": f"CONTEXT:\n{context}\n\nTASK:\n{task}"},
             ],
         }
-        async with httpx.AsyncClient(timeout=60) as client:
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
             resp = await client.post(
                 f"{self.base_url}/chat/completions",
                 headers={"Authorization": f"Bearer {self.api_key}"},

@@ -40,3 +40,14 @@ async def test_default_script_covers_demo_flow():
     assert strict["confidence"] >= 0.8
     session = await client.reason("analyze findings for session management analysis", "")
     assert session["confidence"] >= 0.7
+
+
+def test_llm_client_timeout_configurable_via_env(monkeypatch):
+    """Local small models can exceed 60s per call (live smoke Run 5 cap:
+    ReadTimeout in run_fixed_workflow on nemotron-3-nano:4b). The timeout
+    must be configurable so slow local endpoints don't kill eval runs."""
+    from rgi.reasoning.llm_client import LLMClient
+    monkeypatch.delenv("RGI_LLM_TIMEOUT", raising=False)
+    assert LLMClient().timeout == 60.0
+    monkeypatch.setenv("RGI_LLM_TIMEOUT", "300")
+    assert LLMClient().timeout == 300.0
