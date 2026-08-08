@@ -55,8 +55,13 @@ class OpenAICompatibleEmbeddings:
         async with httpx.AsyncClient(timeout=60) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=self._headers(),
                 json={"model": self.model, "input": texts},
             )
             resp.raise_for_status()
             return [row["embedding"] for row in resp.json()["data"]]
+
+    def _headers(self) -> dict[str, str]:
+        # No key (e.g. local Ollama) → no Authorization header at all;
+        # "Bearer " with an empty token is an illegal header value.
+        return {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}

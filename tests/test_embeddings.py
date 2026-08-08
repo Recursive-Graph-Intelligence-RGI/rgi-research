@@ -105,3 +105,14 @@ async def test_embed_live_path_audit_llm_mode_is_string(tmp_path, monkeypatch):
     started = [e for e in report["execution_log"] if e["event"] == "run_started"]
     assert started
     assert all(isinstance(e["llm_mode"], str) for e in started)
+
+
+def test_openai_compatible_omits_auth_header_without_key():
+    """Ollama needs no auth; an empty key must not produce the illegal
+    'Authorization: Bearer ' header (httpx LocalProtocolError killed the
+    first --embed live run)."""
+    from rgi.reasoning.embeddings import OpenAICompatibleEmbeddings
+    assert "authorization" not in {k.lower() for k in
+        OpenAICompatibleEmbeddings("http://localhost:11434")._headers()}
+    keyed = OpenAICompatibleEmbeddings("http://x", api_key="secret")._headers()
+    assert keyed.get("Authorization") == "Bearer secret"
