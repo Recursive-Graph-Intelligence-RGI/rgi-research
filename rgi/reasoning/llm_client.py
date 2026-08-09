@@ -111,6 +111,8 @@ class LLMClient:
         self.model = model or os.environ.get("RGI_LLM_MODEL", "kimi-k2-0711-preview")
         self.on_call = on_call
         self.calls = 0
+        self.tokens_prompt = 0
+        self.tokens_completion = 0
         self.timeout = float(os.environ.get("RGI_LLM_TIMEOUT", "60"))
 
     async def reason(self, task: str, context: str) -> dict:
@@ -134,7 +136,11 @@ class LLMClient:
                 json=payload,
             )
             resp.raise_for_status()
-            content = resp.json()["choices"][0]["message"]["content"]
+            body = resp.json()
+            usage = body.get("usage") or {}
+            self.tokens_prompt += int(usage.get("prompt_tokens", 0))
+            self.tokens_completion += int(usage.get("completion_tokens", 0))
+            content = body["choices"][0]["message"]["content"]
         return self._validate(self._parse_json(content))
 
     @staticmethod

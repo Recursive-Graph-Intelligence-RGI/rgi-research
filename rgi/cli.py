@@ -41,6 +41,31 @@ def build_report(root, harness, knowledge) -> dict:
         "graphs_spawned": len(graphs) - 1,  # exclude the root itself
         "max_depth_reached": max((harness.depth_of(g) for g in graphs), default=0),
         "llm_calls": harness.total_llm_calls,
+        # Experiment C1 instrumentation: the full topology/cost profile
+        # per run, from the audit trail and graph registry.
+        "topology_metrics": {
+            "graphs": len(graphs),
+            "graph_cells": sum(len(g.nodes) for g in graphs),
+            "max_depth": max((harness.depth_of(g) for g in graphs), default=0),
+            "max_width": max((len(g.subgraph_ids) for g in graphs), default=0),
+            "spawn_approved": sum(1 for e in harness.audit.events
+                                  if e["event"] == "spawn_approved"),
+            "spawn_inhibited": sum(1 for e in harness.audit.events
+                                   if e["event"] == "spawn_inhibited"),
+            "spawn_rejected": sum(1 for e in harness.audit.events
+                                  if e["event"] == "spawn_rejected"),
+            "verification_ops": sum(1 for g in graphs
+                                    if g.loop_type.value == "verification")
+                                + sum(1 for e in harness.audit.events
+                                      if e["event"] == "coverage_sweep"),
+            "repl_rounds": sum(1 for e in harness.audit.events
+                               if e["event"] == "repl_exploration"),
+            "exec_failures": sum(1 for e in harness.audit.events
+                                 if e["event"] in ("node_execution_error",
+                                                   "child_execution_error")),
+            "tokens_prompt": getattr(harness.llm_client, "tokens_prompt", 0),
+            "tokens_completion": getattr(harness.llm_client, "tokens_completion", 0),
+        },
         "findings": findings,
         "topology_used": {
             "root": f"{root.loop_type.value}:{root.id}",
