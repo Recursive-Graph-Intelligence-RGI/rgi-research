@@ -6,6 +6,7 @@ crashes). Model from env (RGI_LLM_MODEL), frozen harness budgets.
 """
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 
@@ -14,7 +15,8 @@ from rgi.eval import _run_condition, score_report_full
 
 SEEDS = (11, 22, 33)
 CONDITIONS = ("rgi", "single", "fixed")
-OUT = Path("data/complexity_c1.json")
+_MODEL_TAG = (os.environ.get("RGI_LLM_MODEL") or "mock").replace("/", "_").replace(":", "_").replace(".", "_")
+OUT = Path(f"data/complexity_c1_{_MODEL_TAG}.json")
 
 
 async def main():
