@@ -83,3 +83,39 @@ async def test_spawn_round_cap_completes_chatty_graph(tmp_path):
     inhibited = [e for e in h.audit.events if e["event"] == "spawn_inhibited"]
     assert inhibited, "expected spawn_inhibited audit event once cap hit"
     assert inhibited[0]["reason"] == "max_spawn_rounds"
+
+
+async def test_coverage_sweep_spawns_for_unread_files(tmp_path):
+    """Root must not consolidate while target files went unread — the
+    coverage gate fires on the audit trail, not on model self-doubt."""
+    from rgi.core.models import CognitiveNode, NodeType
+
+    target = tmp_path / "target"
+    target.mkdir()
+    (target / "a.py").write_text("x = 1\n")
+    (target / "b.py").write_text("import pickle\npickle.loads(b'')\n")
+    h = Harness(HarnessConfig(data_dir=str(tmp_path), target_path=str(target),
+                              llm_client=MockLLMClient()))
+    h.gate.allowed_root = target
+
+    root = CognitiveGraph(loop_type=LoopType.PLANNING,
+                          state=GraphState(objective="security analysis"),
+                          policy=GraphPolicy(require_verification=False))
+    # Simulate prior work that only ever read a.py
+    tool = CognitiveNode(type=NodeType.TOOL, content="parse", parent_graph_id=root.id,
+                         state=NodeState.COMPLETED, confidence=1.0,
+                         result={"findings": [{"source_excerpt": "===== a.py =====\nx = 1"}]})
+    thinker = CognitiveNode(type=NodeType.REASONING, content="analyze",
+                            parent_graph_id=root.id, state=NodeState.COMPLETED,
+                            confidence=0.9, result={"finding": "a.py looks fine"})
+    for n in (tool, thinker):
+        root.nodes[n.id] = n
+    h.graphs[root.id] = root
+
+    done = await execute_graph(root, h)
+
+    sweeps = [e for e in h.audit.events if e["event"] == "coverage_sweep"]
+    assert sweeps and sweeps[0]["missing"] == ["b.py"]
+    children = [h.get_graph(sid) for sid in done.subgraph_ids]
+    assert any("b.py" in c.state.objective for c in children)
+    assert done.state.status == "completed"

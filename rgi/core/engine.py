@@ -3,7 +3,10 @@ iteration: activation, node execution, recursive spawning, verification &
 consolidation, learning. The LLM is called inside nodes only; every
 orchestration decision is made here and in the Harness, and is audited."""
 import asyncio
+import json
+import re
 from datetime import datetime
+from pathlib import Path
 
 from rgi.core.harness import Harness
 from rgi.core.models import (
@@ -140,11 +143,34 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
             if should_spawn_subgraphs(graph) and graph.policy.auto_spawn:
                 pass  # pending suggestions: next iteration's phase 3 handles them
             else:
-                avg = _avg_confidence(graph)
-                if avg >= graph.state.confidence_threshold:
-                    graph.state.status = "completed"
-                elif graph.state.iteration >= graph.state.max_iterations - 1:
-                    graph.state.status = "failed"
+                # Coverage gate (root only): don't consolidate while target
+                # files went unread. Confidence-triggered verification asks
+                # the model to doubt itself; this asks the AUDIT TRAIL what
+                # was never looked at. Prediction-error, not vibes.
+                missing = (_uncovered_files(harness)
+                           if graph.parent_graph_id is None else [])
+                if (missing and graph.policy.auto_spawn
+                        and "coverage_swept" not in graph.memory_snapshot):
+                    graph.memory_snapshot["coverage_swept"] = [f.name for f in missing]
+                    harness.audit.record("coverage_sweep", graph_id=graph.id,
+                                         missing=[f.name for f in missing])
+                    for f in missing[:3]:
+                        cid = await harness.request_subgraph_spawn(graph.id, {
+                            "loop_type": LoopType.EXECUTION,
+                            "objective": f"Coverage sweep: security analysis of {f.name}",
+                            "reason": "coverage_gap",
+                            "target_path": str(f),
+                        })
+                        if cid:
+                            child = await execute_graph(harness.get_graph(cid), harness)
+                            merge_subgraph_results(graph, child)
+                            progressed = True
+                else:
+                    avg = _avg_confidence(graph)
+                    if avg >= graph.state.confidence_threshold:
+                        graph.state.status = "completed"
+                    elif graph.state.iteration >= graph.state.max_iterations - 1:
+                        graph.state.status = "failed"
 
         # PHASE 5: LEARNING
         harness.learning_engine.record_pathway(graph)
@@ -299,6 +325,21 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
         parent.memory_snapshot.setdefault("spawn_suggestions", []).extend(suggestions)
     if child.state.correction_count:
         parent.state.correction_count += child.state.correction_count
+
+
+def _uncovered_files(harness: Harness) -> list:
+    """Target files that never appeared in any node's tool output.
+    Deterministic coverage accounting from the audit substrate — the
+    signal verification should fire on when the model won't doubt itself."""
+    target = Path(harness.config.target_path)
+    if not target.is_dir():
+        return []
+    seen = set()
+    for g in harness.graphs.values():
+        for n in g.nodes.values():
+            if isinstance(n.result, dict):
+                seen.update(re.findall(r"===== (\S+\.py) =====", json.dumps(n.result)))
+    return [f for f in sorted(target.glob("*.py")) if f.name not in seen]
 
 
 def all_subgraphs_completed(graph: CognitiveGraph, harness: Harness) -> bool:
