@@ -19,6 +19,11 @@ TARGETS = [
     {"name": "vuln_app_3", "path": "benchmarks/vuln_app_3",
      "ground_truth": "benchmarks/ground_truth/vuln_app_3.json",
      "max_total_nodes": 120, "max_llm_calls": 40},
+    # Hard target: 13 files, 15 graded vulns, several cross-file chains.
+    # Built after Run 8 saturated vuln_app_3 (rgi = fixed = 1.0 on DeepSeek).
+    {"name": "vuln_app_hard", "path": "benchmarks/vuln_app_hard",
+     "ground_truth": "benchmarks/ground_truth/vuln_app_hard.json",
+     "max_total_nodes": 200, "max_llm_calls": 60},
 ]
 CONDITIONS = ("rgi", "single", "fixed")
 

@@ -1,0 +1,17 @@
+{"vulns": [
+  {"id": "H01-hardcoded-cloud-secrets", "terms": ["hardcoded"]},
+  {"id": "H02-product-search-sqli", "terms": ["injection"]},
+  {"id": "H03-jwt-signature-not-verified", "terms": ["signature"]},
+  {"id": "H04-token-no-expiry", "terms": ["expir"]},
+  {"id": "H05-session-no-timeout", "terms": ["timeout"]},
+  {"id": "H06-pickle-session-deserialization", "terms": ["pickle"]},
+  {"id": "H07-eval-report-templates", "terms": ["eval"]},
+  {"id": "H08-invoice-path-traversal", "terms": ["traversal"]},
+  {"id": "H09-webhook-ssrf", "terms": ["ssrf"]},
+  {"id": "H10-backup-command-injection", "terms": ["command injection", "os.system", "shell injection"]},
+  {"id": "H11-md5-password-hashing", "terms": ["md5"]},
+  {"id": "H12-purge-user-no-authz", "terms": ["bypass", "unprotected", "no auth", "without auth", "missing auth", "authorization"]},
+  {"id": "H13-unsafe-yaml-load", "terms": ["yaml"]},
+  {"id": "H14-reflected-xss-search", "terms": ["xss"]},
+  {"id": "H15-debug-mode-secret-key", "terms": ["debug"]}
+]}

@@ -1,6 +1,6 @@
 import json
 from rgi.cli import main
-from rgi.eval import score_recall
+from rgi.eval import TARGETS, score_recall
 
 
 def test_score_recall_term_matching():
@@ -15,8 +15,8 @@ def test_eval_matrix_mock(tmp_path):
                "--runs", "1", "--output", str(output), "--mock"])
     assert rc == 0
     result = json.loads(output.read_text())
-    # 3 targets x 3 conditions x 1 run
-    assert len(result["matrix"]) == 9
+    # N targets x 3 conditions x 1 run
+    assert len(result["matrix"]) == 3 * len(TARGETS)
     keys = {(m["target"], m["condition"]) for m in result["matrix"]}
     assert ("sample_project", "rgi") in keys
     assert ("vuln_app_2", "fixed") in keys
