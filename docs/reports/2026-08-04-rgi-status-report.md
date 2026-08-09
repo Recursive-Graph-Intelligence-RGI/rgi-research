@@ -481,6 +481,28 @@ Next iteration is dictated by the data, not by taste:
      this scale and the pivot is verification-as-value.
 ```
 
+### Run 10 — substrate fix verdict: TIE AT THE TOP (thesis alive)
+
+Same matrix as Run 9 after two fixes: full labeled source to reasoning
+nodes (80b6608) — note: the coverage gate (897d208) landed AFTER this
+run started, so Run 10 isolates the substrate fix alone.
+
+```
+Tier 0: GREEN — 9/9 completed.
+Tier 1: rgi recall 0.955 (0.933/0.933/1.0) | calls 41.0 | corr 0
+Tier 2: rgi 0.955 = fixed 0.955 (1.0/0.933/0.933) > single 0.844
+Verdict: substrate fix worth +0.311 recall (0.644 → 0.955) — the
+single largest movement in the project, from one engineering change
+predicted by inspection rather than discovered by experiment. RGI run 2
+was the ONLY run of any condition at 1.0 (fixed missed H14 twice).
+Pre-registered rule "RGI ≥ fixed → thesis alive" is met — but as a
+tie at 2.9× the calls, parity is not yet value-add. The differentiator
+must now come from the mechanisms fixed doesn't have: coverage gate
+(already committed, untested live) and correction (still zero live).
+Also notable: findings noise collapsed (529 → 116–193/run) — feeding
+nodes real code reduced hallucinated findings as predicted.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
