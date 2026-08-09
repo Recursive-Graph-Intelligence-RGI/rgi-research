@@ -225,6 +225,26 @@ entities today.
 
 ## 6. Live Experiment Log (DeepSeek `deepseek-chat`, 2026-08-04)
 
+### Master scorecard (mean recall; corr = live corrections; details per run below)
+
+| Run | Model | Target | single | fixed | RGI | RGI calls | corr | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| 5 | nemotron-3-nano:4b (local) | vuln_app_3 | 0.600 | **0.800** | 0.467 † | 15.7 | 0 | Loss (time-limit asymmetry) |
+| 6 | qwen2.5:7b (local) | vuln_app_3 | 0.200 | **0.533** | 0.400 † | 26.7 | 0 | Loss (wall clock, not topology) |
+| 7 | qwen2.5:7b, 1h budget | vuln_app_3 | 0.200 | **0.600** | 0.533 | 27.3 | 0 | Narrow loss; roots complete |
+| 8 | DeepSeek V3 | vuln_app_3 | 0.933 | 1.000 | 1.000 | 30.0 | 0 | SATURATED — target retired |
+| 9 | DeepSeek V3 | vuln_app_hard | 0.800 | **1.000** | 0.644 | 42.3 | 0 | DECISIVE LOSS — substrate diagnosed |
+| 10 | DeepSeek V3, +substrate fix | vuln_app_hard | 0.844 | 0.955 | 0.955 | 41.0 | 0 | TIE (+0.311 from one fix) |
+| 11 | DeepSeek V3, full stack | vuln_app_hard | 0.845 | 0.978 | 0.978 | 42.3 | 0 | TIE; all v0.3 machinery fired live |
+
+† roots died mid-run (time limit); partial findings scored. Run 11 "failed"
+statuses were a gate-metric mislabel, fixed same day (e7d1d79).
+
+Arc: every loss explained, every fix verified by the next run. RGI recall on
+the hard target: 0.644 → 0.978 (+0.334) from substrate + full-stack fixes.
+Open: corrections live (0 everywhere except one pre-fix DeepSeek run and
+early Run 12 signals), and a clean RGI > fixed win.
+
 ### Run 1 — pre-grounding (v0.1 + readiness)
 
 ```
