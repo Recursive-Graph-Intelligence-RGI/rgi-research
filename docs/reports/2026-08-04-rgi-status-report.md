@@ -352,6 +352,36 @@ fairness), global spawn budget (isolate economics), then the model
 ladder (nemotron-4b → qwen2.5:7b → DeepSeek) to map the crossover.
 ```
 
+### Run 6 — model ladder step 1: qwen2.5:7b, same 300s budget
+
+**Model:** `qwen2.5:7b` (local Ollama, GTX 1660 Super), `--embed`
+(nomic-embed-text), vuln_app_3, 3 runs × 3 conditions, spawn-round cap in
+force. Pre-registered expectation: if Run 5's loss was mostly model
+weakness, recall should rise; if it was mostly the 300s asymmetry, roots
+should still die on `time_limit_exceeded`.
+
+```
+Tier 0: FAILURES — 3/3 RGI runs status "failed", ALL on
+        time_limit_exceeded at 300s (audit trail confirms; zero
+        spawn_inhibited/stagnation deaths). Spawn-cap fix holds: the
+        Run 5 crash mode (spawn-until-max_iterations) is gone.
+Tier 1: rgi recall 0.400 (0.4×3, stable) | calls 26.7 | corrections 0
+Tier 2: fixed 0.533 (0.6/0.6/0.4) > rgi 0.400 > single 0.200 (0.2×3)
+Verdict: BOTH Run 5 explanations confirmed, disentangled:
+  1. Model strength matters: doubling-ish model size moved single-shot
+     variance away (0.2×3 stable) and RGI recall became CONSISTENT
+     (0.4×3 vs nemotron's 0.6/0.2/0.6 spread).
+  2. The binding constraint is the wall clock, not the topology: with
+     ~20-30s/call on this GPU, 26 calls cannot fit in 300s. The
+     spawn-cap fix did its job — deaths are now clean time-limit
+     terminations, audit-stamped.
+Fix landed: RGI_MAX_SECONDS env (dae2c8c) — raises the harness wall for
+local-model benchmarking without weakening the 300s demo default.
+Run 7 (in flight): same matrix with max_seconds=3600 — the fairness
+isolation re-run Run 5 prescribed. Prediction: roots complete; the
+question is whether recall passes fixed's 0.533.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
