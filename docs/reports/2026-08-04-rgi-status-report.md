@@ -236,6 +236,7 @@ entities today.
 | 9 | DeepSeek V3 | vuln_app_hard | 0.800 | **1.000** | 0.644 | 42.3 | 0 | DECISIVE LOSS — substrate diagnosed |
 | 10 | DeepSeek V3, +substrate fix | vuln_app_hard | 0.844 | 0.955 | 0.955 | 41.0 | 0 | TIE (+0.311 from one fix) |
 | 11 | DeepSeek V3, full stack | vuln_app_hard | 0.845 | 0.978 | 0.978 | 42.3 | 0 | TIE; all v0.3 machinery fired live |
+| 12 | qwen2.5:7b, full stack | vuln_app_hard | 0.111 | 0.355 | **0.711** | 18.7 | 0 | **FIRST CLEAN WIN — 2× fixed** |
 
 † roots died mid-run (time limit); partial findings scored. Run 11 "failed"
 statuses were a gate-metric mislabel, fixed same day (e7d1d79).
@@ -547,6 +548,38 @@ Verdict: tie again at the top, but the composition changed — RGI's
 two 1.0 runs now match fixed's best, and the differentiating machinery
 (coverage gate) demonstrably engaged. Still no corrections live; the
 verification value-driver remains the open question for the ladder.
+```
+
+### Run 12 — the crossover: qwen2.5:7b, full stack (FIRST CLEAN WIN)
+
+Same matrix, local 7b. Pre-registered prediction (recorded in
+conversation): "fixed ≥ RGI > single... RGI > fixed at 7b gets maybe
+1 in 4." The 1-in-4 came in, decisively.
+
+```
+Tier 0: GREEN — 3/3 RGI runs completed (first time on a local model
+        on the hard target; 5-6 min/run vs 25+ pre-fix).
+Tier 1: rgi recall 0.711 (0.667/0.733/0.733) | calls 18.7 | corr 0
+Tier 2: RGI 0.711 > fixed 0.355 (0.333/0.4/0.333) > single 0.111
+        — RGI DOUBLES the fixed pipeline at 1.3× the calls.
+Verdict: THE CROSSOVER, captured. The mechanisms that merely tied at
+DeepSeek tier are worth 2× at 7B tier:
+  - fixed collapses when the neuron is weak (0.978 → 0.355): per-file
+    calls produce poor findings, no cross-file reasoning, no recovery
+    from bad outputs.
+  - single collapses harder (0.111): 13 files in one prompt exceeds
+    a 7B's effective attention entirely.
+  - RGI degrades gracefully (0.978 → 0.711): small scoped tasks,
+    full context per node, containment absorbing ~10 dead neurons/run
+    (httpx timeouts at 60s — error-typing fix landed same day;
+    raising RGI_LLM_TIMEOUT should recover more).
+The thesis, now with direct evidence: topology is not a tax on strong
+neurons — it is insurance for weak ones. A fixed pipeline scales
+linearly with model strength; a recursive graph amortizes model
+weakness across structure. RQ1 answered YES at 7B on a hard target.
+Remaining gaps: corrections still 0 live (7B never self-doubts; the
+coverage gate does the verification work instead), and the timeout-
+driven node failures leave ~0.1-0.2 recall on the table.
 ```
 
 ---

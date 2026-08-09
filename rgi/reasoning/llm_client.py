@@ -135,7 +135,22 @@ class LLMClient:
             )
             resp.raise_for_status()
             content = resp.json()["choices"][0]["message"]["content"]
-        return self._validate(json.loads(content))
+        return self._validate(self._parse_json(content))
+
+    @staticmethod
+    def _parse_json(content: str) -> dict:
+        """Tolerance layer for weak models: strip markdown fences and prose
+        around the JSON object before strict parsing (json_repair-lite,
+        zero dependencies). Raises JSONDecodeError if truly unparseable."""
+        text = content.strip()
+        if text.startswith("```"):
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        start, end = text.find("{"), text.rfind("}")
+        if start != -1 and end > start:
+            text = text[start:end + 1]
+        return json.loads(text)
 
     @staticmethod
     def _validate(result: dict) -> dict:

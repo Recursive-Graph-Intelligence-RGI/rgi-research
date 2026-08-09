@@ -125,10 +125,11 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
             except Exception as exc:  # containment: failed node, not lost run
                 node.state = NodeState.FAILED
                 node.history.append({"reason": "execution_error",
-                                     "error": str(exc),
+                                     "error": f"{type(exc).__name__}: {exc}",
                                      "timestamp": datetime.now().isoformat()})
                 harness.audit.record("node_execution_error", graph_id=graph.id,
-                                     node_id=node.id, error=str(exc))
+                                     node_id=node.id,
+                                     error=f"{type(exc).__name__}: {exc}")
                 continue
 
             node.history.append({
