@@ -60,6 +60,9 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
     config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
                            max_total_nodes=max_total_nodes,
+                           # Local models blow past the 300s demo limit; RGI_MAX_SECONDS
+                           # raises it for benchmarking without weakening the default.
+                           max_seconds=int(os.environ.get("RGI_MAX_SECONDS", "300")),
                            llm_client=llm, data_dir=str(data_dir))
     if embed or os.environ.get("RGI_EMBED_BASE_URL"):
         from rgi.memory.activation import EmbeddingActivationEngine
