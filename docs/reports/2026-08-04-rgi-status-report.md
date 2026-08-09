@@ -411,6 +411,34 @@ test. Decision rule pre-registered: corrections fire + recall ≥ fixed
 corrections never fire → verification trigger redesign first.
 ```
 
+### Run 8 — strong-neuron test: DeepSeek V3, and the ceiling
+
+Same matrix, `deepseek-chat` via API, embeddings still local
+(nomic-embed-text), `RGI_MAX_SECONDS=900`.
+
+```
+Tier 0: GREEN — 9/9 runs completed, all conditions.
+Tier 1: rgi recall 1.000 (1.0×3) | calls 30.0 | corrections 0
+Tier 2: rgi 1.000 = fixed 1.000 > single 0.933 (0.8/1.0/1.0)
+Verdict: INCONCLUSIVE BY SATURATION. DeepSeek finds all 5 vulns in
+vuln_app_3 under ANY structure — even a single 1-call shot scores
+0.8–1.0. A 5-finding toy has no headroom for topology to show its
+value, and no low-confidence findings means verification never
+triggers, so the pre-registered decision rule cannot fire either way.
+Two real signal points nonetheless:
+  1. RGI ≥ fixed at strong-model tier (1.0 vs 1.0) while the 7B tier
+     showed rgi < fixed (0.533 vs 0.600): the topology tax shrinks as
+     neurons strengthen — consistent with the model-ladder hypothesis.
+  2. The mechanism CAN fire live: the earlier pre-fix DeepSeek run
+     (data/eval_live_hard.json, mislabeled — it is also vuln_app_3)
+     recorded total_corrections=1 on RGI. Corrections are rare but
+     real with strong models; they were never a mock-only phenomenon.
+The pursue/pivot verdict is therefore deferred to a benchmark with
+headroom: more files, more vulns, cross-file dependencies — a target
+where single-shot CANNOT saturate. vuln_app_3 has graduated from
+"test" to "demo".
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
