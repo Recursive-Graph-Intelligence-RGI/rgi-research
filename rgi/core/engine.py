@@ -387,7 +387,10 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
     suggestions = [
         s for n in child.nodes.values()
         if isinstance(n.result, dict) and n.confidence >= child.state.confidence_threshold
-        for s in n.result.get("suggested_subgraphs", [])
+        # null/malformed suggestions (models emit null at higher complexity) —
+        # unguarded iteration here crashed 4b L4 cells in the C1 matrix
+        for s in (n.result.get("suggested_subgraphs") or [])
+        if isinstance(s, str) and s.strip()
     ]
     if suggestions:
         parent.memory_snapshot.setdefault("spawn_suggestions", []).extend(suggestions)
