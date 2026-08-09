@@ -503,6 +503,32 @@ Also notable: findings noise collapsed (529 → 116–193/run) — feeding
 nodes real code reduced hallucinated findings as predicted.
 ```
 
+### Run 11 — full stack: REPL + coverage gate + replan (DeepSeek, vuln_app_hard)
+
+First live run with all v0.3 machinery: graph-native REPL (4adeac0),
+coverage gate (897d208), stall→replan + ledger (323e5e0).
+
+```
+Tier 0: MIXED — 1/3 completed, 2/3 "failed" — MISLABELED, see below.
+Tier 1: rgi recall 0.978 (0.933/1.0/1.0) | calls 42.3 | corr 0
+Tier 2: rgi 0.978 = fixed 0.978 (0.933/1.0/1.0) > single 0.845
+Machinery check (the point of the run): ALL FIRED LIVE —
+  repl_exploration ×2 (model asked for compute; graph grew REPL nodes)
+  coverage_sweep ×2 (root caught unread files before consolidating)
+  replan ×1 (stall lifted cooled nodes instead of dying)
+Tier-0 mislabel diagnosed and fixed same-day: two runs "failed" with
+  recall 0.933/1.0 and report aggregate 0.90 — the completion gate
+  averaged only the root's OWN nodes (a 0.3-confidence repl_error node
+  dragged it under 0.7) while the report metric included merged child
+  findings. Gate and report now use the same metric (merged findings
+  included), regression test pinned. Statuses above are pre-fix
+  artifacts; recall numbers are unaffected (scored from findings).
+Verdict: tie again at the top, but the composition changed — RGI's
+two 1.0 runs now match fixed's best, and the differentiating machinery
+(coverage gate) demonstrably engaged. Still no corrections live; the
+verification value-driver remains the open question for the ladder.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and

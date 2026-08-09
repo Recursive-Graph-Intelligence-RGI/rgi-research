@@ -141,3 +141,24 @@ async def test_coverage_sweep_spawns_for_unread_files(tmp_path):
     children = [h.get_graph(sid) for sid in done.subgraph_ids]
     assert any("b.py" in c.state.objective for c in children)
     assert done.state.status == "completed"
+
+
+def test_avg_confidence_includes_merged_findings():
+    """Regression (Run 11): roots 'failed' at gate-avg 0.6 while their own
+    report scored 0.9 — the gate counted only the root's own nodes and
+    ignored merged subgraph findings. Gate and report must agree."""
+    from rgi.core.engine import _avg_confidence
+    from rgi.core.models import CognitiveNode, NodeType
+
+    g = CognitiveGraph(loop_type=LoopType.PLANNING,
+                       state=GraphState(objective="x"),
+                       policy=GraphPolicy())
+    n = CognitiveNode(type=NodeType.REASONING, content="t", parent_graph_id=g.id,
+                      state=NodeState.COMPLETED, confidence=0.3)
+    g.nodes[n.id] = n
+    assert _avg_confidence(g) == 0.3  # own nodes only: below threshold
+    g.memory_snapshot["merged_findings"] = [
+        {"finding": "great child result", "confidence": 0.95, "node": "c1"},
+        {"finding": "another", "confidence": 0.9, "node": "c2"},
+    ]
+    assert _avg_confidence(g) > g.state.confidence_threshold

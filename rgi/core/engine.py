@@ -426,8 +426,14 @@ def all_subgraphs_completed(graph: CognitiveGraph, harness: Harness) -> bool:
 
 
 def _avg_confidence(graph: CognitiveGraph) -> float:
-    completed = [n for n in graph.nodes.values() if n.state == NodeState.COMPLETED]
-    return (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0
+    """Aggregate confidence for the completion gate. Must include merged
+    subgraph findings — Run 11 showed roots 'failing' at 0.6 while their
+    own report scored 0.9: the gate counted only the root's own nodes
+    (planning + a REPL-error node), the report counted everything."""
+    confs = [n.confidence for n in graph.nodes.values() if n.state == NodeState.COMPLETED]
+    confs += [float(f.get("confidence", 0.5))
+              for f in graph.memory_snapshot.get("merged_findings", [])]
+    return sum(confs) / len(confs) if confs else 0.0
 
 
 def _collect_findings(graph: CognitiveGraph) -> list[dict]:
