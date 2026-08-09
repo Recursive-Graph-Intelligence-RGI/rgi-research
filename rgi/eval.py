@@ -94,10 +94,24 @@ async def run_eval(objective, runs, mock, provider, model, max_llm_calls,
         budget = max(max_llm_calls, target.get("max_llm_calls", 0))
         for condition in CONDITIONS:
             for run_idx in range(runs):
-                report = await _run_condition(condition, target, objective, mock,
-                                              provider, model, budget, run_idx,
-                                              max_total_nodes=target.get("max_total_nodes", 50),
-                                              embed=embed)
+                try:
+                    report = await _run_condition(condition, target, objective, mock,
+                                                  provider, model, budget, run_idx,
+                                                  max_total_nodes=target.get("max_total_nodes", 50),
+                                                  embed=embed)
+                except Exception as exc:
+                    # Cell-level containment (1.5b ladder crash, Run O1): a
+                    # model whose output breaks parsing in baseline/fixed
+                    # (no node-level containment there) must not kill the
+                    # whole matrix. Record the crater, keep going.
+                    matrix.append({
+                        "target": target["name"], "condition": condition,
+                        "run": run_idx, "recall": 0.0, "precision": 0.0,
+                        "findings_raw": 0, "findings_deduped": 0, "calls": 0,
+                        "corrections": 0, "status": "error",
+                        "error": f"{type(exc).__name__}: {exc}"[:300],
+                    })
+                    continue
                 # Preserve every cell's raw report for offline re-grading
                 # (Run 12 lesson: only RGI cells wrote files, so fixed/single
                 # could never be re-scored when the rubric tightened).
