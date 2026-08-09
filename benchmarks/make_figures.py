@@ -126,6 +126,12 @@ def fig3_complexity_curve():
     ax.set_ylim(-0.05, 1.1)
     ax.set_title("Complexity scaling at constant model size (C1)\nDoes topology growth preserve performance as problems grow?")
     ax.legend(fontsize=8, ncol=2)
+    partial = [m for m, lv in curves.items() if any(l not in lv for l in levels)]
+    if partial:
+        ax.text(0.99, 0.02,
+                f"INTERIM: {', '.join(partial)} run in progress — later levels pending",
+                transform=ax.transAxes, ha="right", va="bottom",
+                fontsize=8, color="dimgray", style="italic")
     fig.tight_layout()
     fig.savefig(FIGDIR / "fig3_complexity_curve.png", dpi=150)
     plt.close(fig)
