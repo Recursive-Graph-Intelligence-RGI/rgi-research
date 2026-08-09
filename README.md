@@ -1,12 +1,25 @@
 # RGI — Recursive Graph Intelligence
 
-RGI treats the LLM as a **reasoning primitive inside graph nodes** — it never
-orchestrates. Intelligence emerges from graph topology, feedback loops, and
-recursive spawning, not from a monolithic agent loop. A single CLI objective
-decomposes into recursive subgraphs (planning → execution → verification),
-low-confidence findings trigger topological self-correction (a *new* execution
-graph, not a retry), and every spawn, rejection, and correction is recorded in
-a replayable audit trail.
+**RGI is a hybrid architecture: neural judgment where judgment is needed,
+engineered structure where discipline is needed — and a measurable
+exchange rate between the two.**
+
+The LLM never orchestrates; it is a **reasoning primitive inside graph
+nodes**. The graph provides what the model cannot: decomposition,
+coverage accountability, resource governance, and a replayable audit
+trail. The model provides what the graph cannot: judgment over meaning.
+A single CLI objective decomposes into recursive subgraphs (planning →
+execution → verification), low-confidence findings trigger topological
+self-correction (a *new* execution graph, not a retry), and every spawn,
+rejection, and correction is recorded deterministically.
+
+**Measured so far** (controlled benchmarks, full receipts in
+`docs/reports/`): adaptive topology doubles a fixed pipeline at the 7B
+local tier (0.711 vs 0.355) and holds recall flat (0.71–0.73) across
+model families while pipelines swing 0.36–0.98; an ablation control
+confirms causation with dose-response (0.333 → 0.445 → 0.711); and
+topology grows with problem complexity — every run spawning ≥11 graphs
+scored 1.0. See `docs/reports/figures/`.
 
 > Research vision and paper draft: `docs/vision.md`, `docs/architecture.md`,
 > `paper/recursive-graph-intelligence.md`.
