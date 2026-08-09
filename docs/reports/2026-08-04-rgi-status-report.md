@@ -237,6 +237,7 @@ entities today.
 | 10 | DeepSeek V3, +substrate fix | vuln_app_hard | 0.844 | 0.955 | 0.955 | 41.0 | 0 | TIE (+0.311 from one fix) |
 | 11 | DeepSeek V3, full stack | vuln_app_hard | 0.845 | 0.978 | 0.978 | 42.3 | 0 | TIE; all v0.3 machinery fired live |
 | 12 | qwen2.5:7b, full stack | vuln_app_hard | 0.111 | 0.355 | **0.711** | 18.7 | 0 | **FIRST CLEAN WIN — 2× fixed** |
+| 13 | qwen2.5:7b, PRE-FIX control (4ba5cca) | vuln_app_hard | 0.067 | 0.333 | 0.445 | 34.3 | 0 | ABLATION: dose-response confirmed |
 
 † roots died mid-run (time limit); partial findings scored. Run 11 "failed"
 statuses were a gate-metric mislabel, fixed same day (e7d1d79).
@@ -580,6 +581,31 @@ weakness across structure. RQ1 answered YES at 7B on a hard target.
 Remaining gaps: corrections still 0 live (7B never self-doubts; the
 coverage gate does the verification work instead), and the timeout-
 driven node failures leave ~0.1-0.2 recall on the table.
+```
+
+### Run 13 — the ablation: pre-fix control, causation CONFIRMED
+
+Same model (qwen2.5:7b), same target (vuln_app_hard), same env — only
+the code differs: worktree at 4ba5cca (pre-substrate, pre-coverage,
+pre-REPL, pre-replan). Pre-registered prediction: 0.45, dose-response.
+Actual: 0.445. (Prediction logged in conversation before the run.)
+
+```
+fixed (no structure):             0.333  (0.333×3 — matches Run 12's
+                                          0.355: reliable measurement)
+RGI pre-fix (structure, starved): 0.445  (0.467/0.467/0.400)
+RGI full stack (Run 12):          0.711
+Verdict: DOSE-RESPONSE — the strongest possible ablation outcome.
+  1. Base architecture beats fixed even crippled (+0.112): topology
+     helps independent of the v0.3 fixes.
+  2. The fixes caused the majority of the win (+0.266): substrate +
+     coverage gate + REPL + replan were not decoration — they were the
+     difference between beating fixed and doubling fixed.
+  The contribution ladder is now measured, not asserted:
+     pipeline → recursive graph → recursive graph + full substrate.
+Reliability note: control fixed (0.333) ≈ Run 12 fixed (0.355) —
+  same code, same target, different days: variance ±0.02.
+Artifacts: docs/reports/overnight-ladder-2026-08-08/run13-prefix-control/
 ```
 
 ---
