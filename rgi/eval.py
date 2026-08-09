@@ -69,8 +69,13 @@ async def _run_condition(condition, target, objective, mock, provider, model, ma
                          run_idx, max_total_nodes=50, embed=False):
     if condition == "rgi":
         from rgi.cli import run_analysis  # local import: avoids circularity
-        return await run_analysis(target["path"], objective,
-                                  f"data/eval_{target['name']}_{condition}_{run_idx}.json",
+        # Cell output goes to a throwaway path; the canonical per-cell copy
+        # is written by run_eval into data/cells/ with a model tag. (A
+        # CWD-relative path here let pytest pollute data/ and overwrite a
+        # live 4b cell during the overnight ladder.)
+        import tempfile
+        throwaway = str(Path(tempfile.gettempdir()) / "rgi_eval_throwaway.json")
+        return await run_analysis(target["path"], objective, throwaway,
                                   mock, provider, model, max_llm_calls,
                                   max_total_nodes=max_total_nodes, embed=embed)
     llm = MockLLMClient() if mock else LLMClient(model=model)
