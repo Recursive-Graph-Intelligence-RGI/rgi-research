@@ -382,6 +382,35 @@ isolation re-run Run 5 prescribed. Prediction: roots complete; the
 question is whether recall passes fixed's 0.533.
 ```
 
+### Run 7 — fairness isolation: qwen2.5:7b with a 1-hour budget
+
+Identical to Run 6 except `RGI_MAX_SECONDS=3600`. Pre-registered
+prediction (recorded in conversation before the run): roots complete,
+recall ~0.5, probably doesn't pass fixed; corrections the signal that
+matters.
+
+```
+Tier 0: GREEN — 3/3 RGI runs status "completed". First fully-finished
+        live local-model RGI runs. Time-limit asymmetry confirmed as
+        Run 6's entire failure mode.
+Tier 1: rgi recall 0.533 (0.4/0.6/0.6) | calls 27.3 | corrections 0
+Tier 2: fixed 0.600 (0.6×3) > rgi 0.533 > single 0.200 (0.2×3)
+Verdict: prediction exact. Fairness fix recovered +0.133 recall
+        (0.400 → 0.533) — the Run 6 penalty was entirely truncated
+        consolidation. But RGI still loses to fixed by 0.067 while
+        spending 1.8× the LLM calls (27.3 vs 15.0). At 7B, adaptive
+        topology is currently a tax you pay, not insurance you collect.
+        Corrections STILL zero on every condition: the 7B never flags
+        its own findings as under-confident, so verification never
+        spawns — RGI ran as a recursive decomposer, not a
+        self-corrector. That mechanism is the entire architectural bet,
+        and it remains untested by any live run.
+Run 8 (auto-chained): same matrix on DeepSeek V3 API — the strong-neuron
+test. Decision rule pre-registered: corrections fire + recall ≥ fixed
+→ pursue confidently; corrections fire + recall < fixed → v0.3 tuning;
+corrections never fire → verification trigger redesign first.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
