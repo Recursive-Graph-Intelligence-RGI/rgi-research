@@ -439,6 +439,48 @@ where single-shot CANNOT saturate. vuln_app_3 has graduated from
 "test" to "demo".
 ```
 
+### Run 9 — the verdict run: DeepSeek on vuln_app_hard (DECISIVE LOSS)
+
+New target built for structure to matter: 13 files, 15 graded vulns,
+cross-file chains (api→db SQLi, admin→tokens→db forged-role command
+injection, api→cache pickle, api→reports eval). DeepSeek V3, 3×3,
+budgets raised (60 calls, 200 nodes).
+
+```
+Tier 0: GREEN — 9/9 completed.
+Tier 1: rgi recall 0.644 (0.533/0.733/0.667) | calls 42.3 | corr 0
+Tier 2: fixed 1.000 (1.0×3, 14 calls) > single 0.800 (1 call!)
+        > rgi 0.644 (42 calls)
+Verdict: DECISIVE LOSS — the worst possible ordering. RGI loses to a
+ONE-CALL baseline while spending 42 calls. Pre-registered: a tie was
+already a loss for the thesis; this is worse.
+Failure-mode diagnosis (not speculation — from the artifacts):
+  - RGI produced 136–529 findings per run but systematically missed
+    H03 (jwt signature), H05 (session timeout), H11 (md5), H14 (xss).
+  - Topology was CORRECT: 40 subgraphs at depth 2 with on-target
+    decompositions ("token_security_analysis",
+    "password_hashing_analysis", "deserialization") — the planner
+    named the right battles.
+  - The subgraphs lost them anyway: execution nodes reason from
+    grep-pattern tool output and activation-filtered neighbor context
+    — they NEVER READ THE FILES. Fixed reads every file; single-shot
+    reads every file; RGI reads fragments. Decomposition multiplied
+    reasoning while the perception/context substrate starved it.
+Conclusion: v0.1/v0.2's recursive decomposition is falsified as a
+value driver AT THIS SCALE on this task shape. The topology was never
+the problem. The information path was.
+Next iteration is dictated by the data, not by taste:
+  1. SUBSTRATE FIX (v0.2.1): execution nodes ingest the actual file(s)
+     for their scope (full-content tool node), not grep fragments.
+  2. COVERAGE-TRIGGERED VERIFICATION: corrections fired 0 times AGAIN
+     because confidence never drops below 0.7 — the model doesn't know
+     what it didn't read. Verification must fire on coverage gaps
+     (unscanned files, unchecked vuln classes), not self-doubt.
+  3. One re-run. If RGI still loses with its nodes actually seeing
+     the code, the recursive-decomposition thesis is honestly dead at
+     this scale and the pivot is verification-as-value.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and
