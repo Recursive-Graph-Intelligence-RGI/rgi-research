@@ -3,6 +3,8 @@ Matrix = targets x conditions x repetitions, scored against ground truth.
 Mock mode = plumbing; live mode = evidence."""
 import asyncio
 import json
+import os
+import re
 from pathlib import Path
 
 from rgi.baseline import run_baseline
@@ -35,6 +37,34 @@ def score_recall(report: dict, ground_truth: dict) -> float:
     return hits / len(vulns) if vulns else 0.0
 
 
+def score_report_full(report: dict, ground_truth: dict) -> dict:
+    """Tightened grading (post-Run 12 review): dedupe findings before
+    scoring — the raw scorer gave more findings more lottery tickets for
+    keyword hits, and RGI produces 10-30× more findings than fixed.
+    Also reports precision (fraction of unique findings that mention a
+    real vuln term) so noise is measured, not hidden."""
+    findings = report.get("findings", [])
+    seen, unique = set(), []
+    for f in findings:
+        t = " ".join(json.dumps(f, sort_keys=True).lower().split())
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    text = " ".join(unique)
+    vulns = ground_truth["vulns"]
+    hits = sum(1 for v in vulns if any(term.lower() in text for term in v["terms"]))
+    relevant = sum(
+        1 for t in unique
+        if any(term.lower() in t for v in vulns for term in v["terms"])
+    )
+    return {
+        "recall": round(hits / len(vulns), 3) if vulns else 0.0,
+        "precision": round(relevant / len(unique), 3) if unique else 0.0,
+        "findings_raw": len(findings),
+        "findings_deduped": len(unique),
+    }
+
+
 async def _run_condition(condition, target, objective, mock, provider, model, max_llm_calls,
                          run_idx, max_total_nodes=50, embed=False):
     if condition == "rgi":
@@ -63,11 +93,23 @@ async def run_eval(objective, runs, mock, provider, model, max_llm_calls,
                                               provider, model, budget, run_idx,
                                               max_total_nodes=target.get("max_total_nodes", 50),
                                               embed=embed)
+                # Preserve every cell's raw report for offline re-grading
+                # (Run 12 lesson: only RGI cells wrote files, so fixed/single
+                # could never be re-scored when the rubric tightened).
+                tag = re.sub(r"[^A-Za-z0-9_.-]", "_",
+                             model or os.environ.get("RGI_LLM_MODEL") or "mock")
+                cell_path = Path("data/cells") / f"{target['name']}_{condition}_{run_idx}_{tag}.json"
+                cell_path.parent.mkdir(exist_ok=True)
+                cell_path.write_text(json.dumps(report))
+                graded = score_report_full(report, ground_truth)
                 matrix.append({
                     "target": target["name"],
                     "condition": condition,
                     "run": run_idx,
-                    "recall": round(score_recall(report, ground_truth), 3),
+                    "recall": graded["recall"],
+                    "precision": graded["precision"],
+                    "findings_raw": graded["findings_raw"],
+                    "findings_deduped": graded["findings_deduped"],
                     "calls": report.get("llm_calls", 0),
                     "corrections": report.get("corrections_made", 0),
                     "status": report.get("status", "unknown"),
