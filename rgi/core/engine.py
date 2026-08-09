@@ -32,6 +32,9 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         for node_id, score in scores.items():
             if node_id in graph.nodes:
                 graph.nodes[node_id].activation = score
+        for n in graph.nodes.values():  # replan lift survives re-scoring
+            if n.metadata.pop("force_fire", False):
+                n.activation = 1.0
         threshold = getattr(harness.activation_engine, "threshold", ACTIVATION_THRESHOLD)
         active = [n for n in graph.nodes.values() if n.activation > threshold]
         active.sort(key=lambda n: n.activation, reverse=True)
@@ -217,12 +220,26 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         # PHASE 5: LEARNING
         harness.learning_engine.record_pathway(graph)
 
-        # Stagnation guard: never spin without progress
+        # Stagnation guard: stall → REPLAN once (Magentic-style), then stop.
+        # A stall with queued nodes is an attention failure — activation
+        # cooled them — not a work failure. Force-fire them once; if the
+        # graph stalls again with nothing learned, then stop.
         if not progressed and graph.state.status == "running":
-            avg = _avg_confidence(graph)
-            graph.state.status = ("completed" if avg >= graph.state.confidence_threshold
-                                  else "failed")
-            harness.audit.record("stagnation_stop", graph_id=graph.id, avg_confidence=avg)
+            cooled = [n for n in graph.nodes.values()
+                      if n.type in (NodeType.REASONING, NodeType.TOOL,
+                                    NodeType.VERIFICATION, NodeType.GOVERNANCE)
+                      and n.state == NodeState.PENDING]
+            if cooled and not graph.memory_snapshot.get("replanned"):
+                graph.memory_snapshot["replanned"] = True
+                for n in cooled:
+                    n.metadata["force_fire"] = True
+                harness.audit.record("replan", graph_id=graph.id,
+                                     lifted=[n.id for n in cooled])
+            else:
+                avg = _avg_confidence(graph)
+                graph.state.status = ("completed" if avg >= graph.state.confidence_threshold
+                                      else "failed")
+                harness.audit.record("stagnation_stop", graph_id=graph.id, avg_confidence=avg)
 
         graph.state.iteration += 1
 
@@ -358,6 +375,11 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
     if findings:
         parent.memory_snapshot.setdefault("merged_findings", []).extend(
             {"from_graph": child.id, **f} for f in findings)
+        ledger = parent.memory_snapshot.get("ledger")
+        if isinstance(ledger, dict):
+            ledger.setdefault("facts", []).extend(
+                f["finding"] for f in findings
+                if f.get("confidence", 0) >= child.state.confidence_threshold)
     suggestions = [
         s for n in child.nodes.values()
         if isinstance(n.result, dict) and n.confidence >= child.state.confidence_threshold

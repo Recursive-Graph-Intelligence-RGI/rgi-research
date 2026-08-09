@@ -88,6 +88,9 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
         policy=GraphPolicy(),
     )
     initialize_graph_nodes(root, {"objective": objective})
+    # Magentic-style ledger: structured run state the verification and
+    # replan machinery can read without re-parsing prose findings.
+    root.memory_snapshot["ledger"] = {"facts": [], "gaps": [], "guesses": []}
     activated = await harness.activation_engine.a_propagate(knowledge, objective)
     root.memory_snapshot["world_model"] = {
         knowledge.nodes[nid].metadata["name"]: knowledge.nodes[nid].content

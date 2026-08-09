@@ -61,6 +61,28 @@ async def test_stagnation_guard_fails_empty_graph(tmp_path):
     assert done.state.iteration < done.state.max_iterations  # did not spin
 
 
+async def test_stall_triggers_replan_lift_once(tmp_path):
+    """A stall with queued nodes is an attention failure: force-fire them
+    once (audited as 'replan'), stop only if it stalls again."""
+    from rgi.core.models import CognitiveNode, NodeType
+
+    h = _harness(tmp_path)
+    g = CognitiveGraph(loop_type=LoopType.EXECUTION,
+                       state=GraphState(objective="zzzzz no lexical overlap"),
+                       policy=GraphPolicy(auto_spawn=False, require_verification=False))
+    cold = CognitiveNode(type=NodeType.REASONING, content="qqqqq unrelated work",
+                         parent_graph_id=g.id)
+    g.nodes[cold.id] = cold
+    h.graphs[g.id] = g
+
+    done = await execute_graph(g, h)
+
+    replans = [e for e in h.audit.events if e["event"] == "replan"]
+    assert len(replans) == 1 and replans[0]["lifted"] == [cold.id]
+    assert cold.state != NodeState.PENDING  # the lift fired it
+    assert done.state.iteration < done.state.max_iterations
+
+
 async def test_spawn_round_cap_completes_chatty_graph(tmp_path):
     """Regression (live Run 5): a chatty model suggests subgraphs on every
     response, and merged children re-seed spawn_suggestions. Without a
