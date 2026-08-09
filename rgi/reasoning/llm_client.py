@@ -11,7 +11,11 @@ SYSTEM_PROMPT = (
     "system. Analyze the given context and return structured JSON: "
     '{"finding": str, "confidence": float (0.0-1.0), "reasoning": str, '
     '"recommended_action": str, "suggested_subgraphs": [str]}. '
-    'When asked to challenge a finding, also include "finding_valid": bool.'
+    'When asked to challenge a finding, also include "finding_valid": bool. '
+    'If you need to inspect the corpus programmatically before concluding, '
+    'instead return {"repl_code": str} — Python over FILES (a {filename: '
+    'source} dict) and re; print() or set RESULT. You will be re-invoked '
+    'with the output. Keep repl_code under 20 lines.'
 )
 
 

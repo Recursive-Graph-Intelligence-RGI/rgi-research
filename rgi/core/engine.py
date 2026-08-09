@@ -10,11 +10,12 @@ from pathlib import Path
 
 from rgi.core.harness import Harness
 from rgi.core.models import (
-    CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
+    CognitiveEdge, CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
 )
 
 ACTIVATION_THRESHOLD = 0.5
 MAX_SPAWN_ROUNDS = 2  # per-graph; chatty models re-seed suggestions every merge
+MAX_REPL_ROUNDS = 2   # per-node; bounded model-driven corpus exploration
 
 
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
@@ -54,6 +55,44 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                 if node.type == NodeType.REASONING:
                     context = harness.context_builder.build(node, graph)
                     result = await harness.llm_client.reason(node.content, context)
+                    repl_code = result.get("repl_code")
+                    if (isinstance(repl_code, str) and repl_code.strip()
+                            and node.metadata.get("repl_rounds", 0) < MAX_REPL_ROUNDS):
+                        # RLM-style exploration, graph-native: the model asks
+                        # for compute, the topology grows a REPL node with a
+                        # flow edge back, and the reasoning node re-fires next
+                        # iteration with the output as a neighbor.
+                        node.metadata["repl_rounds"] = node.metadata.get("repl_rounds", 0) + 1
+                        repl_node = CognitiveNode(
+                            type=NodeType.TOOL,
+                            content=f"REPL round {node.metadata['repl_rounds']}: {node.content[:60]}",
+                            parent_graph_id=graph.id,
+                            metadata={"tool": "explore_corpus",
+                                      "params": {"path": harness.config.target_path,
+                                                 "code": repl_code}},
+                        )
+                        if harness.governance_check(graph, repl_node):
+                            repl_node.state = NodeState.ACTIVE
+                            repl_node.result = await harness.tool_registry.execute(
+                                "explore_corpus", repl_node.metadata["params"])
+                            repl_node.confidence = float(repl_node.result.get("confidence", 0.9))
+                            repl_node.state = NodeState.COMPLETED
+                        else:
+                            repl_node.state = NodeState.FAILED
+                        graph.nodes[repl_node.id] = repl_node
+                        graph.edges.append(CognitiveEdge(source=repl_node.id, target=node.id,
+                                                         edge_type="flow"))
+                        node.result = result
+                        node.state = NodeState.PENDING  # re-reason with REPL output
+                        node.history.append({"state": NodeState.PENDING.value,
+                                             "timestamp": datetime.now().isoformat(),
+                                             "reason": "repl_exploration",
+                                             "round": node.metadata["repl_rounds"]})
+                        harness.audit.record("repl_exploration", graph_id=graph.id,
+                                             node_id=node.id,
+                                             round=node.metadata["repl_rounds"])
+                        progressed = True
+                        continue
                     node.result = result
                     node.confidence = float(result.get("confidence", 0.5))
                     node.state = NodeState.COMPLETED
@@ -142,6 +181,9 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                 await maybe_spawn_verification(graph, harness)
             if should_spawn_subgraphs(graph) and graph.policy.auto_spawn:
                 pass  # pending suggestions: next iteration's phase 3 handles them
+            elif _pending_work(graph):
+                pass  # executable nodes still queued (e.g. a REPL re-fire
+                      # or a freshly wired tool): do not consolidate yet
             else:
                 # Coverage gate (root only): don't consolidate while target
                 # files went unread. Confidence-triggered verification asks
@@ -325,6 +367,17 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
         parent.memory_snapshot.setdefault("spawn_suggestions", []).extend(suggestions)
     if child.state.correction_count:
         parent.state.correction_count += child.state.correction_count
+
+
+def _pending_work(graph: CognitiveGraph) -> bool:
+    """Executable nodes still queued. Consolidating over a PENDING
+    reasoning node (e.g. one mid-REPL-loop) silently discards its work."""
+    return any(
+        n.type in (NodeType.REASONING, NodeType.TOOL, NodeType.VERIFICATION,
+                   NodeType.GOVERNANCE)
+        and n.state in (NodeState.PENDING, NodeState.ACTIVE)
+        for n in graph.nodes.values()
+    )
 
 
 def _uncovered_files(harness: Harness) -> list:

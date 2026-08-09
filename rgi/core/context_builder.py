@@ -19,7 +19,14 @@ class ContextBuilder:
 
         neighbors = [
             n for n in graph.nodes.values()
-            if n.id != node.id and n.activation > 0.3
+            if n.id != node.id and (
+                n.activation > 0.3
+                # declared inputs are definitionally relevant: a REPL/tool
+                # node wired into this one must be seen even if activation
+                # scoring cools it
+                or any(e.target == node.id and e.source == n.id and e.edge_type == "flow"
+                       for e in graph.edges)
+            )
         ]
         neighbors.sort(key=lambda n: n.activation, reverse=True)
 

@@ -1,12 +1,27 @@
 """Deterministic security-analysis tools. Tools are neurons too: structured
 output with confidence, no orchestration."""
 import ast
+import contextlib
+import io
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 _SECRET_RE = re.compile(
     r"""(?P<name>[A-Z_]*(?:SECRET|API_KEY|TOKEN|PASSWORD|DATABASE_URL)[A-Z_]*)\s*=\s*["'](?P<value>[^"']{6,})["']"""
 )
+
+# Sandboxed REPL builtins for explore_corpus (RLM-style corpus exploration).
+# No open/__import__/eval/exec — the corpus is the only input, stdout/RESULT
+# the only output. TODO: FortSignal boundary for production code-exec policy.
+def _safe_builtins() -> dict:
+    import builtins
+    return {k: getattr(builtins, k) for k in (
+        "abs", "all", "any", "bool", "dict", "enumerate", "filter", "float",
+        "int", "isinstance", "len", "list", "map", "max", "min", "print",
+        "range", "repr", "round", "set", "sorted", "str", "sum", "tuple", "zip",
+        "Exception", "ValueError", "KeyError", "IndexError", "TypeError",
+    )}
 
 
 def _read_source(path: str) -> str:
@@ -29,6 +44,7 @@ class ToolRegistry:
             "grep_security_patterns": self._grep_security_patterns,
             "check_jwt_usage": self._check_jwt_usage,
             "find_hardcoded_secrets": self._find_hardcoded_secrets,
+            "explore_corpus": self._explore_corpus,
         }
 
     async def execute(self, tool_name: str, params: dict) -> dict:
@@ -99,3 +115,30 @@ class ToolRegistry:
             for m in _SECRET_RE.finditer(text)
         ]
         return {"findings": findings, "confidence": 0.9}
+
+    def _explore_corpus(self, params: dict) -> dict:
+        """RLM-style REPL: the model writes Python over FILES (a
+        {filename: source} dict) and `re`, instead of us guessing which
+        fixed tool fits. Sandboxed: safe builtins only, 10s timeout,
+        12k output cap. Scales where a fixed source dump cannot."""
+        code = str(params.get("code", ""))
+        corpus = {f.name: f.read_text() for f in _py_files(params["path"])}
+        namespace = {"FILES": corpus, "re": re, "__builtins__": _safe_builtins()}
+
+        def _run():
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                exec(code, namespace)  # noqa: S102 — sandboxed namespace by design
+            return buf.getvalue(), namespace.get("RESULT")
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            try:
+                stdout, result = pool.submit(_run).result(timeout=10)
+            except Exception as exc:
+                return {"findings": [{"kind": "repl_error", "detail": str(exc)[:500]}],
+                        "confidence": 0.3}
+        output = stdout
+        if result is not None:
+            output += f"\nRESULT: {result}"
+        return {"findings": [{"kind": "repl_output", "output": output[:12000]}],
+                "confidence": 0.9}
