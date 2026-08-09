@@ -63,3 +63,26 @@ def test_planning_prompt_still_matches_mock_and_grounds():
     assert "decompose" in content.lower()           # mock script key
     assert "world-model" in content                  # grounding instruction
     assert "Analyze authentication security" in content
+
+
+def test_malformed_subgraph_suggestions_filtered(tmp_path):
+    """Regression (1.5b ladder crash): weak models emit dict-valued
+    suggested_subgraphs; a dict objective crashed GraphState validation
+    mid-run. Non-string suggestions must be dropped, not spawned."""
+    from rgi.core.engine import generate_spawn_proposals
+    from rgi.core.models import CognitiveNode, NodeType
+
+    g = CognitiveGraph(loop_type=LoopType.PLANNING,
+                       state=GraphState(objective="x"),
+                       policy=GraphPolicy())
+    n = CognitiveNode(type=NodeType.REASONING, content="t", parent_graph_id=g.id,
+                      state=NodeState.COMPLETED, confidence=0.9,
+                      result={"finding": "f", "suggested_subgraphs": [
+                          "JWT analysis",
+                          {"__id__": "code_snippets", "detail": "garbage"},
+                          42, None, "  ",
+                      ]})
+    g.nodes[n.id] = n
+    h = Harness(HarnessConfig(data_dir=str(tmp_path), llm_client=MockLLMClient()))
+    proposals = generate_spawn_proposals(g, h)
+    assert [p["objective"] for p in proposals] == ["JWT analysis"]

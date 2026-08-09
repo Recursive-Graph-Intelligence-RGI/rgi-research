@@ -368,6 +368,9 @@ def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[di
         {"loop_type": LoopType.EXECUTION, "objective": s,
          "reason": "decomposition", "target_path": harness.config.target_path}
         for s in suggestions[:3]
+        # weak models emit malformed suggestions (dicts, nulls) — a dict
+        # objective crashed GraphState validation in the 1.5b ladder run
+        if isinstance(s, str) and s.strip()
     ]
 
 
