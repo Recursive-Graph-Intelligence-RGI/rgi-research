@@ -67,3 +67,17 @@ contained cell errors), wall time.
 
 Re-run the break level at 4b and 7b: does stronger neuron + topology
 recover performance? Maps minimum capability vs complexity.
+
+## Limitations (registered pre-run; updated as discovered)
+
+- 3 seeds × 1 run per level: variance across generated instances is the
+  honest variance; repetitions may be added at decisive levels.
+- Synthetic generator: cleaner vulns than real-world mess. Mechanism
+  test, not field test; Phase 1 real-repo run is the field test.
+- **Ollama num_ctx=4096 truncation (found 2026-08-09, user-flagged):**
+  full-source contexts at L3+ exceed the default window; local results
+  may understate substrate quality. Frozen for this series; follow-up
+  series with OLLAMA_CONTEXT_LENGTH=8192 is planned (status report §5.11).
+- **Chain sinks sort first alphabetically** (chain0_*), so the 30k
+  source excerpt over-covers chain files at large levels. Verdict
+  weights precision and the mechanism rule, not raw recall alone.

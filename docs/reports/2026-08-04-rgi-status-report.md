@@ -220,6 +220,18 @@ entities today.
    in §6. Run 4 showed the discriminating variable is context pressure, not file
    count; a weak model creates that pressure without a 100+ file benchmark.
 10. v0.2 report hygiene: findings dedup, per-file line attribution.
+11. **Ollama context window (OPEN — user-flagged 2026-08-09):** local models
+    run at Ollama's default `num_ctx` 4096; RGI full-source contexts at C1
+    L3+ reach 8–12k tokens, so Ollama likely truncates silently. Results
+    held anyway (7b 0.711), but substrate quality may be understated for
+    local runs. Deliberately NOT changed mid-C1-series (frozen-methodology
+    rule). Follow-up: set `OLLAMA_CONTEXT_LENGTH=8192` (or per-request
+    `options.num_ctx` via native API) and re-run the C1 upper levels as
+    their own variable — expected outcome measured, not assumed.
+12. **C1 generator naming artifact (OPEN):** chain sinks sort first
+    alphabetically (chain0_*) so the 30k source excerpt over-covers chain
+    files at large levels. Note in C1 limitations; fix = hash-prefix or
+    z-prefix module names in a future generator version.
 
 ---
 
