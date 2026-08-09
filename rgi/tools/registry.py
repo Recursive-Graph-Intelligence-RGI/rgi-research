@@ -46,7 +46,16 @@ class ToolRegistry:
             imports.extend(
                 a.name for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names
             )
-        source_excerpt = _read_source(params["path"])[:4000]
+        # Full labeled source, not a 4k fragment: Run 9 showed reasoning
+        # nodes starved when files past the alphabetical cut vanished.
+        max_chars = int(params.get("max_chars", 30000))
+        sections = [
+            f"===== {py_file.name} =====\n{py_file.read_text()}"
+            for py_file in _py_files(params["path"])
+        ]
+        source_excerpt = "\n\n".join(sections)
+        if len(source_excerpt) > max_chars:
+            source_excerpt = source_excerpt[:max_chars] + "\n[...truncated]"
         return {
             "findings": [{"classes": classes, "functions": functions,
                           "imports": imports, "source_excerpt": source_excerpt}],

@@ -13,7 +13,9 @@ async def test_parse_result_includes_source_excerpt(tmp_path):
     f.write_text("x = 1\n" * 100)
     result = await ToolRegistry().execute("parse_python_file", {"path": str(f)})
     assert "source_excerpt" in result["findings"][0]
-    assert result["findings"][0]["source_excerpt"].startswith("x = 1")
+    excerpt = result["findings"][0]["source_excerpt"]
+    assert excerpt.startswith("===== m.py =====")  # labeled per-file sections
+    assert "x = 1" in excerpt
 
 
 def _graph_with_suggestion(confidence):
