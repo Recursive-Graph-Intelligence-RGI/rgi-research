@@ -4,6 +4,10 @@
 This document is the falsification contract: it is written so the
 experiment can kill its own hypothesis.*
 
+**Status: GRADED 2026-08-09** — verdict in §Verdict below; full grading
+in the status report, Run C1
+(`docs/reports/2026-08-04-rgi-status-report.md` §6).
+
 ## Hypothesis (Jeff Walters, 2026-08-09)
 
 > RGI converts increasing problem complexity into increasing
@@ -81,3 +85,37 @@ recover performance? Maps minimum capability vs complexity.
 - **Chain sinks sort first alphabetically** (chain0_*), so the 30k
   source excerpt over-covers chain files at large levels. Verdict
   weights precision and the mechanism rule, not raw recall alone.
+
+## Verdict (GRADED 2026-08-09)
+
+The hypothesis is **CONFIRMED through L4 and FALSIFIED at L5.** RGI
+recall is flat at 1.000 across L1–L4 for both nemotron-3-nano:4b and
+qwen2.5:7b while the single baseline degrades at every model size
+(7b: 0.833 → 0.299), so the benchmark genuinely gets harder and the
+flat line is not a too-easy-test artifact; topology metrics grow with
+level, so the mechanism rule holds. At L5 (128 files) rgi ≤ fixed for
+the first time (4b: 0.115 vs 1.000; 7b: 0.000 vs 0.993) — the
+falsification contract's break-point rule fires. The L5 failure
+signature is identical across all three model families: planner emits
+no plan, exactly 1 LLM call, ~30s wall time. Diagnosis: the
+4096-token context window cannot hold 128 files of raw source and the
+planner chokes — a perception/context failure, not a topology failure.
+An L5-only re-run at 8k context is queued as the confirmation test
+with a pre-registered prediction. The series was extended from the
+pre-registered 1.5b-only design to three models per the follow-on
+rule; qwen2.5:1.5b degrades earliest (rgi 1.0 → 0.65 across L1–L4,
+trailing fixed from L3), so the break point moves outward with neuron
+strength: structure compensates for weak neurons but cannot cancel
+them.
+
+**Per-model break points (first level where rgi ≤ fixed / planner
+collapses):** 1.5b — L5 (rgi 0.000; already trails fixed L3–L4);
+4b — L5 (0.115 vs fixed 1.000); 7b — L5 (0.000 vs fixed 0.993).
+
+Disclosures carried from the grading (status report, Run C1): 4b/7b
+tables reflect 5 re-run cells after the null-suggestions fix
+(`739b6db`; original crashes were infrastructure, not topology);
+1.5b retains 9 pre-fix error cells (L5/fixed has no completed cells);
+one 4b L5 rgi cell excluded as planner collapse; rgi's 1-call L5
+counts are the failure symptom, not efficiency — the cost-advantage
+claim holds only L1–L4.

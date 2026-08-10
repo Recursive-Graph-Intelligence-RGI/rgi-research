@@ -86,54 +86,96 @@ def fig2_ablation():
     plt.close(fig)
 
 
+LEVELS = ["L1", "L2", "L3", "L4", "L5"]
+N_FILES = [8, 16, 32, 64, 128]
+C1_FILES = {"1.5b": "data/complexity_c1.json",
+            "4b": "data/complexity_c1_nemotron-3-nano_4b.json",
+            "7b": "data/complexity_c1_qwen2_5_7b.json"}
+
+
 def _c1_curves():
+    """Per model, per level, per condition: mean recall and mean calls over completed cells."""
     out = {}
-    files = {"1.5b": "data/complexity_c1.json",
-             "4b": "data/complexity_c1_nemotron-3-nano_4b.json",
-             "7b": "data/complexity_c1_qwen2_5_7b.json"}
-    for model, path in files.items():
+    for model, path in C1_FILES.items():
         if not Path(path).exists():
             continue
         cells = _load(path)
         levels = {}
         for c in cells:
-            levels.setdefault(c["level"], {}).setdefault(c["condition"], []).append(c.get("recall", 0))
-        out[model] = {lv: {k: sum(v) / len(v) for k, v in conds.items()}
-                      for lv, conds in levels.items()}
+            if c.get("status") != "completed":
+                continue
+            d = levels.setdefault(c["level"], {}).setdefault(c["condition"], {"recall": [], "calls": []})
+            d["recall"].append(c.get("recall", 0))
+            d["calls"].append(c.get("calls", 0))
+        out[model] = {
+            lv: {k: {"recall": sum(v["recall"]) / len(v["recall"]),
+                     "calls": sum(v["calls"]) / len(v["calls"])}
+                 for k, v in conds.items()}
+            for lv, conds in levels.items()}
     return out
 
 
+def _panel_axes(fig, curves, suptitle):
+    """Shared 1x3 panel setup: log2 x, level ticks with n_files labels."""
+    axes = fig.subplots(1, 3, sharex=True)
+    for ax, (model, lv) in zip(axes, curves.items()):
+        ax.set_xscale("log", base=2)
+        ax.set_xticks(N_FILES)
+        ax.set_xticklabels([f"{l}\n{n}" for l, n in zip(LEVELS, N_FILES)], fontsize=8)
+        ax.set_title(model, fontsize=11)
+        ax.tick_params(axis="y", labelsize=9)
+    fig.suptitle(suptitle, fontsize=12)
+    return axes
+
+
 def fig3_complexity_curve():
-    """Today: recall vs problem complexity, per condition, per model available."""
+    """Recall vs problem complexity at constant model size, one panel per model."""
     curves = _c1_curves()
-    levels = ["L1", "L2", "L3", "L4", "L5"]
-    xs = [8, 16, 32, 64, 128]
-    fig, ax = plt.subplots(figsize=(7.5, 4.6))
-    styles = {"1.5b": "-", "4b": "--", "7b": "-."}
-    for model, lv in curves.items():
-        for cond, color in (("rgi", C["rgi"]), ("fixed", C["fixed"]), ("single", C["single"])):
-            ys = [lv.get(l, {}).get(cond) for l in levels]
-            pts = [(x, y) for x, y in zip(xs, ys) if y is not None]
+    fig = plt.figure(figsize=(11, 4.4))
+    axes = _panel_axes(fig, curves,
+                       "Recall vs problem complexity at constant model size (C1)")
+    for ax, (model, lv) in zip(axes, curves.items()):
+        for cond, color, marker in (("rgi", C["rgi"], "o"),
+                                    ("fixed", C["fixed"], "s"),
+                                    ("single", C["single"], "^")):
+            ys = [lv.get(l, {}).get(cond, {}).get("recall") for l in LEVELS]
+            pts = [(x, y) for x, y in zip(N_FILES, ys) if y is not None]
             if pts:
                 ax.plot([p[0] for p in pts], [p[1] for p in pts],
-                        styles[model], color=color, lw=2, marker="o", ms=6,
-                        label=f"{cond.upper()} ({model})")
-    ax.set_xscale("log", base=2)
-    ax.set_xticks(xs)
-    ax.set_xticklabels([f"{x}" for x in xs])
-    ax.set_xlabel("problem complexity (files in generated codebase)")
-    ax.set_ylabel("mean recall")
-    ax.set_ylim(-0.05, 1.1)
-    ax.set_title("Complexity scaling at constant model size (C1)\nDoes topology growth preserve performance as problems grow?")
-    ax.legend(fontsize=8, ncol=2)
-    partial = [m for m, lv in curves.items() if any(l not in lv for l in levels)]
-    if partial:
-        ax.text(0.99, 0.02,
-                f"INTERIM: {', '.join(partial)} run in progress — later levels pending",
-                transform=ax.transAxes, ha="right", va="bottom",
-                fontsize=8, color="dimgray", style="italic")
-    fig.tight_layout()
+                        "-" , color=color, lw=2, marker=marker, ms=6,
+                        label=f"{cond.upper()}")
+        ax.set_ylim(0, 1.05)
+        ax.set_xlabel("complexity level (files)", fontsize=9)
+    axes[0].set_ylabel("mean recall")
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center",
+               ncol=3, fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
     fig.savefig(FIGDIR / "fig3_complexity_curve.png", dpi=150)
+    plt.close(fig)
+
+
+def fig5_efficiency():
+    """Mean LLM calls vs complexity, rgi vs fixed, one panel per model."""
+    curves = _c1_curves()
+    fig = plt.figure(figsize=(11, 4.4))
+    axes = _panel_axes(fig, curves,
+                       "LLM calls vs problem complexity — same recall, different cost")
+    for ax, (model, lv) in zip(axes, curves.items()):
+        for cond, color, marker in (("rgi", C["rgi"], "o"),
+                                    ("fixed", C["fixed"], "s")):
+            ys = [lv.get(l, {}).get(cond, {}).get("calls") for l in LEVELS]
+            pts = [(x, y) for x, y in zip(N_FILES, ys) if y is not None]
+            if pts:
+                ax.plot([p[0] for p in pts], [p[1] for p in pts],
+                        "-", color=color, lw=2, marker=marker, ms=6,
+                        label=f"{cond.upper()}")
+        ax.set_yscale("log", base=2)
+        ax.set_xlabel("complexity level (files)", fontsize=9)
+    axes[0].set_ylabel("mean LLM calls (log2)")
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center",
+               ncol=2, fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.07, 1, 0.95))
+    fig.savefig(FIGDIR / "fig5_efficiency.png", dpi=150)
     plt.close(fig)
 
 
@@ -171,4 +213,5 @@ if __name__ == "__main__":
     fig2_ablation()
     fig3_complexity_curve()
     fig4_coupling()
+    fig5_efficiency()
     print(f"figures written to {FIGDIR}/")

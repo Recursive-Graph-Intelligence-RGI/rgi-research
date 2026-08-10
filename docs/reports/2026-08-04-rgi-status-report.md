@@ -620,6 +620,94 @@ Reliability note: control fixed (0.333) ≈ Run 12 fixed (0.355) —
 Artifacts: docs/reports/overnight-ladder-2026-08-08/run13-prefix-control/
 ```
 
+### Run C1 — complexity scaling matrix: 5 levels × 3 models × 3 conditions
+
+Pre-registered falsification contract:
+`docs/reports/2026-08-09-experiment-c1-complexity-scaling.md`. Generated
+benchmark, 5 levels (L1–L5 = 8/16/32/64/128 files, vuln density ~25%,
+cross-file chain depth 1→6), 3 seeds per level, 3 conditions (rgi /
+fixed / single) — 45 cells per model. Harness limits frozen at Run 13
+state for the whole series. Figures (final):
+`docs/reports/figures/fig3_complexity_curve.png` (3-panel recall curves),
+`docs/reports/figures/fig5_efficiency.png` (calls vs level).
+
+Mean recall over completed cells; mean LLM calls in parens.
+
+**qwen2.5:1.5b** — 9 error cells retained as errors (early run, pre-fix;
+disclosed; L5/fixed has no completed cells, so no fixed mean there):
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (11c) | 0.750 (8c) | 0.417 |
+| L2 | 16 | 0.792 (11c) | 0.688 (16c) | 0.250 |
+| L3 | 32 | 0.750 (12c) | 0.844 (32c) | 0.271 |
+| L4 | 64 | 0.646 (6c) | 0.875 (64c) | 0.312 |
+| L5 | 128 | 0.000 (1c) | — (no completed cells) | 0.000 |
+
+**nemotron-3-nano:4b** — clean 45/45 after re-running 5 crashed cells
+with the null-suggestions fix (`739b6db`):
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (24c) | 1.000 (8c) | 0.667 |
+| L2 | 16 | 1.000 (29c) | 1.000 (16c) | 0.708 |
+| L3 | 32 | 1.000 (31c) | 1.000 (32c) | 0.521 |
+| L4 | 64 | 1.000 (17c) | 1.000 (64c) | 0.479 |
+| L5 | 128 | 0.115 (1c) | 1.000 (128c) | 0.076 |
+
+**qwen2.5:7b** — clean 45/45:
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (21c) | 1.000 (8c) | 0.833 |
+| L2 | 16 | 1.000 (30c) | 1.000 (16c) | 0.708 |
+| L3 | 32 | 1.000 (33c) | 0.979 (32c) | 0.313 |
+| L4 | 64 | 1.000 (4c) | 1.000 (64c) | 0.708 |
+| L5 | 128 | 0.000 (1c) | 0.993 (128c) | 0.299 |
+
+```
+Tier 0: MIXED — 1.5b retains 9 error cells from its original pre-fix
+        run (kept as errors, disclosed); 4b/7b clean 45/45 after
+        re-running 5 crashed cells (1 rgi + 3 fixed + 1 single) with
+        the null-suggestions fix (739b6db). The original crashes were
+        infrastructure — TypeError on null suggested_subgraphs,
+        JSONDecodeError on malformed model output, one ReadTimeout —
+        not topology failures, and re-running kept conditions
+        symmetric. One 4b L5 rgi cell has status "failed" (planner
+        collapse) and is excluded from means.
+Performance rule (contract §1): rgi slope FLAT at 1.000 across L1–L4
+        for both 4b and 7b; single slope negative at every model size
+        (7b: 0.833 → 0.299). The benchmark does get harder, so rgi's
+        flat line is not a too-easy-test artifact. CONFIRMED through L4.
+Mechanism rule (contract §2): topology metrics (graphs spawned, cells)
+        grow with level — HOLDS. Stable performance is topology-driven,
+        not saturation.
+Break point (contract §3): L5 for all three models — the first level
+        where rgi ≤ fixed (4b: 0.115 vs 1.000; 7b: 0.000 vs 0.993).
+        FALSIFIED at the top level, reported as the contract requires.
+L5 failure signature — identical across all three model families:
+  planner emits no plan, exactly 1 LLM call, ~30s wall time.
+  Diagnosis: the 4096-token context window cannot hold 128 files of
+  raw source; the planner chokes. This is a PERCEPTION/CONTEXT
+  failure, not a topology failure. Confirmation test queued: L5-only
+  re-run at 8k context with a pre-registered prediction.
+Model ladder within C1: 1.5b degrades earliest (rgi 1.0 → 0.65 across
+  L1–L4, trailing fixed from L3) — the break point moves outward with
+  neuron strength. Structure compensates for weak neurons but cannot
+  cancel them.
+Efficiency: at L4, 7b rgi wins with a mean of 4 calls vs fixed's 64;
+  4b 17 vs 64. Fixed's L5 wins cost 128 calls (~20–24 min wall per
+  cell at 7b/4b). CAVEAT: rgi's call-count collapse at L5 (1 call) is
+  a symptom of the planner failure, not efficiency — the "same recall,
+  fraction of the cost" claim holds only L1–L4.
+Verdict: hypothesis CONFIRMED through L4, FALSIFIED at L5. The
+  experiment was designed to be falsifiable and it falsified at the
+  top level; both outcomes are stated plainly.
+Limitations: L1/L2 near-saturated for rgi and fixed — future matrices
+  should trim them. 1.5b's retained pre-fix error cells disclosed
+  above; 4b/7b tables reflect the 5 re-run cells disclosed above.
+```
+
 ---
 
 *Bottom line: v0.1 is a verified machine with an honest grading framework and

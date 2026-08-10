@@ -3,4 +3,5 @@ __pycache__/
 .pytest_cache/
 .env
 data/
+benchmarks/gen/
 docs/private/

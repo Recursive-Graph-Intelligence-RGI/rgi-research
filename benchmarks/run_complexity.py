@@ -13,10 +13,12 @@ from pathlib import Path
 from benchmarks.generator import LEVELS, generate
 from rgi.eval import _run_condition, score_report_full
 
-SEEDS = (11, 22, 33)
-CONDITIONS = ("rgi", "single", "fixed")
+SEEDS = tuple(int(s) for s in os.environ.get("RGI_C1_SEEDS", "11,22,33").split(","))
+CONDITIONS = tuple(os.environ.get("RGI_C1_CONDITIONS", "rgi,single,fixed").split(","))
+_ONLY_LEVELS = os.environ.get("RGI_C1_LEVELS")  # e.g. "L5" or "L4,L5"; None = all
 _MODEL_TAG = (os.environ.get("RGI_LLM_MODEL") or "mock").replace("/", "_").replace(":", "_").replace(".", "_")
-OUT = Path(f"data/complexity_c1_{_MODEL_TAG}.json")
+_RUN_TAG = os.environ.get("RGI_C1_TAG")  # e.g. "8k" -> complexity_c1_8k_<model>.json
+OUT = Path(f"data/complexity_c1_{_RUN_TAG + '_' if _RUN_TAG else ''}{_MODEL_TAG}.json")
 
 
 async def main():
@@ -26,6 +28,8 @@ async def main():
     done = {(r["level"], r["seed"], r["condition"]) for r in results}
 
     for level, (n_files, n_vulns, chain_depth) in LEVELS.items():
+        if _ONLY_LEVELS and level not in _ONLY_LEVELS.split(","):
+            continue
         for seed in SEEDS:
             target_dir = Path(f"benchmarks/gen/{level}_s{seed}")
             if not target_dir.exists():
