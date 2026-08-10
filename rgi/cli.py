@@ -27,11 +27,16 @@ def build_report(root, harness, knowledge) -> dict:
         for f in graph.memory_snapshot.get("merged_findings", []):
             findings.append({"graph": graph.state.objective, **f})
         for node in graph.nodes.values():
-            if isinstance(node.result, dict) and "finding" in node.result:
+            if not isinstance(node.result, dict):
+                continue
+            if "finding" in node.result:
                 normalized = normalize_finding(node.result["finding"])
-                if normalized is None:
-                    continue
-                findings.append({"graph": graph.state.objective, **normalized})
+                if normalized is not None:
+                    findings.append({"graph": graph.state.objective, **normalized})
+            for raw in node.result.get("findings", []):
+                normalized = normalize_finding(raw)
+                if normalized is not None:
+                    findings.append({"graph": graph.state.objective, **normalized})
     completed = [n for g in graphs for n in g.nodes.values()
                  if n.state.value == "completed"]
     aggregate = (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0

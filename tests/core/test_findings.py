@@ -30,3 +30,29 @@ class TestFindingNormalization:
         raw = {"kind": "weak_secret", "detail": "short secret"}
         out = normalize_finding(raw)
         assert out["severity"] == "medium"
+
+    def test_is_noise_rejects_non_dict(self):
+        assert is_noise("plain string") is True
+        assert is_noise(None) is True
+        assert is_noise(["list"]) is True
+
+    def test_findings_list_skips_noise(self):
+        raw_findings = [
+            {"kind": "sql_injection", "file": "api/main.py", "confidence": 0.8},
+            {"kind": "keyword_hit", "keyword": "of", "line": 12},
+            {"kind": "xss", "file": "web/app.py", "confidence": 0.7},
+        ]
+        normalized = [f for f in map(normalize_finding, raw_findings) if f is not None]
+        assert len(normalized) == 2
+        assert normalized[0]["kind"] == "sql_injection"
+        assert normalized[1]["kind"] == "xss"
+
+    def test_malformed_confidence_defaults(self):
+        raw = {"kind": "sql_injection", "file": "api/main.py", "confidence": "not-a-number"}
+        out = normalize_finding(raw)
+        assert out["confidence"] == 0.5
+
+    def test_missing_confidence_defaults(self):
+        raw = {"kind": "sql_injection", "file": "api/main.py"}
+        out = normalize_finding(raw)
+        assert out["confidence"] == 0.5

@@ -1,7 +1,6 @@
 """Finding normalization: separate real vulnerabilities from tool noise."""
 
 NOISE_KINDS = {"keyword_hit"}
-BANNED_KEYWORDS = {"of", "and", "the", "in", "to", "a", "is", "for", "analysis"}
 
 
 def is_noise(raw: dict) -> bool:
@@ -10,8 +9,6 @@ def is_noise(raw: dict) -> bool:
         return True
     kind = raw.get("kind")
     if kind in NOISE_KINDS:
-        return True
-    if kind == "keyword_hit" and raw.get("keyword") in BANNED_KEYWORDS:
         return True
     # Raw source dumps and plain strings without structure are noise.
     if "source_excerpt" in raw and "kind" not in raw:
@@ -29,6 +26,10 @@ def normalize_finding(raw: dict) -> dict | None:
     if not kind:
         return None
     grounded = bool(raw.get("file") or raw.get("line") or raw.get("symbol"))
+    try:
+        confidence = float(raw.get("confidence", 0.5))
+    except (TypeError, ValueError):
+        confidence = 0.5
     return {
         "kind": kind,
         "severity": raw.get("severity", "medium"),
@@ -36,6 +37,6 @@ def normalize_finding(raw: dict) -> dict | None:
         "file": raw.get("file"),
         "line": raw.get("line"),
         "symbol": raw.get("symbol"),
-        "confidence": float(raw.get("confidence", 0.5)),
+        "confidence": confidence,
         "grounded": grounded,
     }
