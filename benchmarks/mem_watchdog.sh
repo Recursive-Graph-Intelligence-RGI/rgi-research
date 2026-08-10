@@ -12,7 +12,7 @@ echo "$(date -Iseconds) watchdog started (floor=$((FLOOR_KB / 1024))MB available
 while true; do
     avail=$(awk '/MemAvailable/{a=$2} /SwapFree/{s=$2} END{print a+s}' /proc/meminfo)
     if [ "$avail" -lt "$FLOOR_KB" ]; then
-        pids=$(pgrep -f "benchmarks.run_complexity" || true)
+        pids=$(pgrep -f "benchmarks.run_" || true)
         if [ -n "$pids" ]; then
             echo "$(date -Iseconds) LOW MEMORY ($((avail / 1024))MB free) — killing runner pids: $pids" >> "$LOG"
             kill $pids 2>/dev/null
@@ -25,7 +25,7 @@ while true; do
         exit 1
     fi
     # also exit when the runner is done so the watchdog doesn't linger forever
-    if ! pgrep -f "benchmarks.run_complexity" > /dev/null; then
+    if ! pgrep -f "benchmarks.run_" > /dev/null; then
         echo "$(date -Iseconds) runner finished — watchdog exiting" >> "$LOG"
         exit 0
     fi
