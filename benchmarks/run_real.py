@@ -43,6 +43,10 @@ async def main():
         for condition in CONDITIONS:
             if (name, condition) in done:
                 continue
+            # Size-aware time limit: the default 300s wall is too short for
+            # larger real-code targets (observed 7b R4 and 4b R3 time out
+            # with good recall). Pre/post data preserved for re-runs.
+            os.environ["RGI_MAX_SECONDS"] = str(max(300, 180 + n_files * 5))
             started = time.monotonic()
             cell = {"target": name, "n_files": n_files, "condition": condition}
             try:
