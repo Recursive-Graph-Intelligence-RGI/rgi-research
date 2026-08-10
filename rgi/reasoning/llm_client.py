@@ -15,7 +15,9 @@ SYSTEM_PROMPT = (
     'If you need to inspect the corpus programmatically before concluding, '
     'instead return {"repl_code": str} — Python over FILES (a {filename: '
     'source} dict) and re; print() or set RESULT. You will be re-invoked '
-    'with the output. Keep repl_code under 20 lines.'
+    'with the output. Keep repl_code under 20 lines. '
+    "Every vulnerability finding MUST cite a concrete file and line number "
+    "or symbol name from the codebase; findings without such grounding are invalid."
 )
 
 
@@ -130,9 +132,12 @@ class LLMClient:
             ],
         }
         async with httpx.AsyncClient(timeout=self.timeout) as client:
+            headers = {}
+            if self.api_key:
+                headers["Authorization"] = f"Bearer {self.api_key}"
             resp = await client.post(
                 f"{self.base_url}/chat/completions",
-                headers={"Authorization": f"Bearer {self.api_key}"},
+                headers=headers,
                 json=payload,
             )
             resp.raise_for_status()
