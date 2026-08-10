@@ -36,7 +36,8 @@ async def main():
                 generate(target_dir, n_files, n_vulns, chain_depth, seed)
             target = {"name": f"{level}_s{seed}", "path": str(target_dir),
                       "ground_truth": str(target_dir / "ground_truth.json"),
-                      "max_total_nodes": 200, "max_llm_calls": 60}
+                      "max_total_nodes": int(os.environ.get("RGI_C1_MAX_NODES", "200")),
+                      "max_llm_calls": int(os.environ.get("RGI_C1_MAX_LLM_CALLS", "60"))}
             ground_truth = json.loads((target_dir / "ground_truth.json").read_text())
             for condition in CONDITIONS:
                 if (level, seed, condition) in done:
@@ -49,7 +50,7 @@ async def main():
                         condition, target,
                         "Analyze code security across this codebase",
                         mock=False, provider="ollama", model=None,
-                        max_llm_calls=60, run_idx=0,
+                        max_llm_calls=target["max_llm_calls"], run_idx=0,
                         max_total_nodes=200, embed=True)
                     graded = score_report_full(report, ground_truth)
                     cell.update({

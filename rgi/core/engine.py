@@ -4,6 +4,7 @@ consolidation, learning. The LLM is called inside nodes only; every
 orchestration decision is made here and in the Harness, and is audited."""
 import asyncio
 import json
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -14,8 +15,10 @@ from rgi.core.models import (
 )
 
 ACTIVATION_THRESHOLD = 0.5
-MAX_SPAWN_ROUNDS = 2  # per-graph; chatty models re-seed suggestions every merge
+MAX_SPAWN_ROUNDS = int(os.environ.get("RGI_MAX_SPAWN_ROUNDS", "2"))  # per-graph; chatty models re-seed suggestions every merge
 MAX_REPL_ROUNDS = 2   # per-node; bounded model-driven corpus exploration
+MAX_SPAWN_PER_ROUND = int(os.environ.get("RGI_MAX_SPAWN_PER_ROUND", "3"))  # suggestions[:N]
+COVERAGE_SWEEP_MAX = int(os.environ.get("RGI_COVERAGE_SWEEP_MAX", "3"))    # missing[:N] per sweep
 
 
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
@@ -200,7 +203,7 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                     graph.memory_snapshot["coverage_swept"] = [f.name for f in missing]
                     harness.audit.record("coverage_sweep", graph_id=graph.id,
                                          missing=[f.name for f in missing])
-                    for f in missing[:3]:
+                    for f in missing[:COVERAGE_SWEEP_MAX]:
                         cid = await harness.request_subgraph_spawn(graph.id, {
                             "loop_type": LoopType.EXECUTION,
                             "objective": f"Coverage sweep: security analysis of {f.name}",
@@ -367,7 +370,7 @@ def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[di
     return [
         {"loop_type": LoopType.EXECUTION, "objective": s,
          "reason": "decomposition", "target_path": harness.config.target_path}
-        for s in suggestions[:3]
+        for s in suggestions[:MAX_SPAWN_PER_ROUND]
         # weak models emit malformed suggestions (dicts, nulls) — a dict
         # objective crashed GraphState validation in the 1.5b ladder run
         if isinstance(s, str) and s.strip()

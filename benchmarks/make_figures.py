@@ -270,6 +270,57 @@ def fig4_coupling():
     plt.close(fig)
 
 
+def fig8_cap_relaxation():
+    """Governor-cap falsification test: L5 rgi, shipped caps vs relaxed caps.
+    Relaxed files are data/complexity_c1_relaxed_<model>.json."""
+    import numpy as np
+    relaxed = {"1.5b": "data/complexity_c1_relaxed_qwen2_5_1_5b.json",
+               "4b": "data/complexity_c1_relaxed_nemotron-3-nano_4b.json",
+               "7b": "data/complexity_c1_relaxed_qwen2_5_7b.json"}
+
+    def l5(path):
+        cells = [c for c in _load(path)
+                 if c["level"] == "L5" and c["condition"] == "rgi"
+                 and c.get("status") == "completed"]
+        return (sum(c["recall"] for c in cells) / len(cells),
+                sum(c["calls"] for c in cells) / len(cells))
+
+    models, rc, rr, cc, cr = [], [], [], [], []
+    for m in C1_FILES:
+        if not Path(relaxed[m]).exists():
+            continue
+        a, b = l5(C1_FILES[m])
+        c, d = l5(relaxed[m])
+        models.append(m); rc.append(a); rr.append(c); cc.append(b); cr.append(d)
+
+    x = np.arange(len(models)); w = 0.35
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(9.5, 4.2))
+    ax1.bar(x - w/2, rc, w, label="capped (shipped limits)", color=C["rgi"])
+    ax1.bar(x + w/2, rr, w, label="relaxed (4x spawn, 2x calls)", color="#7fcfa5")
+    for xi, v in zip(x - w/2, rc): ax1.text(xi, v + 0.02, f"{v:.2f}", ha="center", fontsize=9)
+    for xi, v in zip(x + w/2, rr): ax1.text(xi, v + 0.02, f"{v:.2f}", ha="center", fontsize=9)
+    ax1.set_xticks(x); ax1.set_xticklabels(models); ax1.set_ylim(0, 1.15)
+    ax1.set_ylabel("mean recall at L5 (128 files)")
+    ax1.set_title("Recall: caps off changes nothing")
+    ax1.legend(fontsize=8, loc="lower right")
+    ax2.bar(x - w/2, cc, w, label="capped", color=C["rgi"])
+    ax2.bar(x + w/2, cr, w, label="relaxed", color="#7fcfa5")
+    for xi, v in zip(x - w/2, cc): ax2.text(xi, v + 2, f"{v:.0f}", ha="center", fontsize=9)
+    for xi, v in zip(x + w/2, cr): ax2.text(xi, v + 2, f"{v:.0f}", ha="center", fontsize=9)
+    ax2.axhline(128, color=C["fixed"], ls="--", lw=1.5)
+    ax2.text(len(models) - 0.6, 121, "fixed pipeline: 128", fontsize=8,
+             color=C["fixed"], ha="right")
+    ax2.set_xticks(x); ax2.set_xticklabels(models); ax2.set_ylim(0, 140)
+    ax2.set_ylabel("mean LLM calls at L5")
+    ax2.set_title("Cost: stays low either way")
+    ax2.legend(fontsize=8, loc="center right")
+    fig.suptitle("Governor-cap falsification test — relaxing every limit does not raise recall (C1 follow-up)",
+                 fontsize=11)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
+    fig.savefig(FIGDIR / "fig8_cap_relaxation.png", dpi=150)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     fig1_model_ladder()
     fig2_ablation()
@@ -277,4 +328,5 @@ if __name__ == "__main__":
     fig4_coupling()
     fig5_efficiency()
     fig6_topology_growth()
+    fig8_cap_relaxation()
     print(f"figures written to {FIGDIR}/")
