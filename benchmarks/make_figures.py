@@ -321,6 +321,132 @@ def fig8_cap_relaxation():
     plt.close(fig)
 
 
+# --- C2: real-codebase replication figures ---
+
+C2_TARGETS = ["R1_vulpy", "R2_dvpwa", "R4_pygoat", "R3_aiohttp"]
+C2_LABELS = ["R1 vulpy\n(18)", "R2 dvpwa\n(21)", "R4 pygoat\n(80)", "R3 aiohttp\n(132)"]
+C2_MODELS = {
+    "qwen2_5_1_5b": "1.5b",
+    "nemotron-3-nano_4b": "4b",
+    "qwen2_5_7b": "7b",
+}
+
+
+def _c2_files():
+    """Return model-label -> path for completed C2 result files (skip backups)."""
+    out = {}
+    for path in sorted(Path("data").glob("real_c2_*.json")):
+        if path.name.endswith((".pre_timeout_bump.json", ".stale_mock_fallback.json")):
+            continue
+        # model tag is between "real_c2_" and ".json"
+        tag = path.stem.replace("real_c2_", "")
+        label = C2_MODELS.get(tag)
+        if label:
+            out[label] = path
+    return out
+
+
+def _c2_matrix(path):
+    """Return {(target, condition): cell} for completed cells only."""
+    cells = _load(path)
+    return {(c["target"], c["condition"]): c for c in cells
+            if c.get("status") == "completed" and c.get("target") in C2_TARGETS}
+
+
+def fig9_real_codebase_recall():
+    """C2 recall across real targets and conditions, one panel per model."""
+    files = _c2_files()
+    if not files:
+        return
+    n = len(files)
+    fig, axes = plt.subplots(1, n, figsize=(4 * n + 1, 4.5), sharey=True)
+    if n == 1:
+        axes = [axes]
+    width = 0.25
+    x = range(len(C2_TARGETS))
+    for ax, (model, path) in zip(axes, files.items()):
+        matrix = _c2_matrix(path)
+        for offset, cond in enumerate(("rgi", "fixed", "single")):
+            ys = [matrix.get((t, cond), {}).get("recall") for t in C2_TARGETS]
+            ys = [y if y is not None else 0 for y in ys]
+            ax.bar([i + (offset - 1) * width for i in x], ys, width,
+                   label=cond.upper(), color=C[cond])
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(C2_LABELS, fontsize=8)
+        ax.set_ylim(0, 1.05)
+        ax.set_title(model, fontsize=11)
+        ax.axhline(0, color="black", lw=0.5)
+    axes[0].set_ylabel("recall")
+    fig.suptitle("Real-codebase replication (C2): recall by target and condition", fontsize=12)
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center",
+               ncol=3, fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.06, 1, 0.94))
+    fig.savefig(FIGDIR / "fig9_real_codebase_recall.png", dpi=150)
+    plt.close(fig)
+
+
+def fig10_real_codebase_cost():
+    """C2 LLM calls across real targets and conditions, one panel per model."""
+    files = _c2_files()
+    if not files:
+        return
+    n = len(files)
+    fig, axes = plt.subplots(1, n, figsize=(4 * n + 1, 4.5), sharey=True)
+    if n == 1:
+        axes = [axes]
+    width = 0.25
+    x = range(len(C2_TARGETS))
+    for ax, (model, path) in zip(axes, files.items()):
+        matrix = _c2_matrix(path)
+        for offset, cond in enumerate(("rgi", "fixed", "single")):
+            ys = [matrix.get((t, cond), {}).get("calls") for t in C2_TARGETS]
+            ys = [y if y is not None else 0 for y in ys]
+            ax.bar([i + (offset - 1) * width for i in x], ys, width,
+                   label=cond.upper(), color=C[cond])
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(C2_LABELS, fontsize=8)
+        ax.set_title(model, fontsize=11)
+    axes[0].set_ylabel("LLM calls")
+    fig.suptitle("Real-codebase replication (C2): cost by target and condition", fontsize=12)
+    fig.legend(*axes[0].get_legend_handles_labels(), loc="lower center",
+               ncol=3, fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.06, 1, 0.94))
+    fig.savefig(FIGDIR / "fig10_real_codebase_cost.png", dpi=150)
+    plt.close(fig)
+
+
+def fig12_real_topology_growth():
+    """C2 mechanism check: RGI topology size vs file count on real code."""
+    files = _c2_files()
+    if not files:
+        return
+    fig, ax = plt.subplots(figsize=(7, 4.4))
+    n_files = {"R1_vulpy": 18, "R2_dvpwa": 21, "R4_pygoat": 80, "R3_aiohttp": 132}
+    markers = {"1.5b": "o", "4b": "s", "7b": "^"}
+    for model, path in files.items():
+        matrix = _c2_matrix(path)
+        xs, ys = [], []
+        for t in C2_TARGETS:
+            cell = matrix.get((t, "rgi"))
+            if cell:
+                tm = cell.get("topology_metrics", {})
+                xs.append(n_files[t])
+                ys.append(tm.get("graph_cells", 0))
+        if xs:
+            ax.plot(xs, ys, "-", marker=markers.get(model, "o"),
+                    color=C["rgi"], lw=2, ms=8, label=f"{model} rgi")
+    ax.set_xscale("log", base=2)
+    ax.set_xticks(list(n_files.values()))
+    ax.set_xticklabels(C2_LABELS, fontsize=8, rotation=15, ha="right")
+    ax.set_xlabel("files in target")
+    ax.set_ylabel("graph cells (nodes)")
+    ax.set_title("Mechanism check: does RGI grow with real-code size? (C2)")
+    ax.legend(fontsize=9)
+    fig.tight_layout()
+    fig.savefig(FIGDIR / "fig12_real_topology_growth.png", dpi=150)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     fig1_model_ladder()
     fig2_ablation()
@@ -329,4 +455,7 @@ if __name__ == "__main__":
     fig5_efficiency()
     fig6_topology_growth()
     fig8_cap_relaxation()
+    fig9_real_codebase_recall()
+    fig10_real_codebase_cost()
+    fig12_real_topology_growth()
     print(f"figures written to {FIGDIR}/")
