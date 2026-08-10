@@ -52,7 +52,8 @@ class OpenAICompatibleEmbeddings:
 
     async def embed(self, texts: list[str]) -> list[list[float]]:
         import httpx
-        async with httpx.AsyncClient(timeout=60) as client:
+        timeout = float(os.environ.get("RGI_EMBED_TIMEOUT", "60"))
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
                 headers=self._headers(),
