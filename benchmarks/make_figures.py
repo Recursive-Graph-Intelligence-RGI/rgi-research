@@ -203,7 +203,7 @@ def _c1_rgi_topology():
 def fig6_topology_growth():
     """Does RGI grow deeper/wider graphs as problems get harder?
     3x3 small-multiple: rows = models, cols = graph size / max depth / max width.
-    The L5 collapse (spawn budget refuses every child graph) is left unsmoothed."""
+    Post-fix (f782c28): L5 no longer collapses — recall holds with lean graphs."""
     topo = _c1_rgi_topology()
     fig, axes = plt.subplots(3, 3, figsize=(11, 9), sharex=True)
     for row, (model, lv) in enumerate(topo.items()):
@@ -230,9 +230,9 @@ def fig6_topology_growth():
     axes[0][1].set_title("max depth (mean)", fontsize=11)
     axes[0][2].set_title("max width (mean)", fontsize=11)
     axes[2][1].set_xlabel("complexity level (files)", fontsize=10)
-    fig.suptitle("Topology growth vs problem complexity (C1, rgi condition)\n"
-                 "Size and width grow L1→L3; depth stays flat at 2; "
-                 "L5 shows the spawn-budget collapse (1 graph, depth 0)", fontsize=12)
+    fig.suptitle("Topology growth vs problem complexity (C1, rgi condition, post-fix)\n"
+                 "Size and width scale with complexity through mid levels; depth stays at the policy cap (2);\n"
+                 "L5 runs lean — the planner solves with small graphs, not no graphs", fontsize=12)
     fig.legend(*axes[0][0].get_legend_handles_labels(), loc="lower center",
                ncol=2, fontsize=9, frameon=False)
     fig.tight_layout(rect=(0, 0.05, 1, 0.92))
@@ -243,8 +243,9 @@ def fig6_topology_growth():
 def fig4_coupling():
     """The mechanism: graphs spawned vs recall, per RGI cell."""
     pts = []
-    for path in glob.glob("data/complexity_c1*.json"):
-        model = "1.5b" if path == "data/complexity_c1.json" else path.split("_")[-1].replace(".json", "")
+    for model, path in C1_FILES.items():  # main files only — not the 8k/mock side files
+        if not Path(path).exists():
+            continue
         for c in _load(path):
             if c["condition"] == "rgi" and c.get("status") == "completed":
                 tm = c.get("topology_metrics", {})
