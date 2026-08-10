@@ -9,6 +9,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from rgi.core.findings import normalize_finding
 from rgi.core.harness import Harness
 from rgi.core.models import (
     CognitiveEdge, CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
@@ -385,7 +386,7 @@ def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> Non
         ledger = parent.memory_snapshot.get("ledger")
         if isinstance(ledger, dict):
             ledger.setdefault("facts", []).extend(
-                f["finding"] for f in findings
+                f for f in findings
                 if f.get("confidence", 0) >= child.state.confidence_threshold)
     suggestions = [
         s for n in child.nodes.values()
@@ -451,12 +452,16 @@ def _collect_findings(graph: CognitiveGraph) -> list[dict]:
     for n in graph.nodes.values():
         if n.state != NodeState.COMPLETED or not isinstance(n.result, dict):
             continue
+        candidates = []
         if "finding" in n.result:
-            out.append({"finding": n.result["finding"], "confidence": n.confidence,
-                        "node": n.id})
+            candidates.append(n.result["finding"])
         elif "findings" in n.result:
-            out.extend({"finding": f, "confidence": n.confidence, "node": n.id}
-                       for f in n.result["findings"])
+            candidates.extend(n.result["findings"])
+        for raw in candidates:
+            normalized = normalize_finding(raw)
+            if normalized is not None:
+                normalized.update({"confidence": n.confidence, "node": n.id})
+                out.append(normalized)
     return out
 
 
