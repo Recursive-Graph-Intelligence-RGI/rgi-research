@@ -9,7 +9,7 @@ from typing import Optional
 from rgi.core.audit import AuditLog
 from rgi.core.context_builder import ContextBuilder
 from rgi.core.governance import LocalGate
-from rgi.core.models import CognitiveGraph, CognitiveNode, GraphPolicy, GraphState, NodeType
+from rgi.core.models import CognitiveGraph, CognitiveNode, GraphPolicy, GraphState, LoopType, NodeType
 from rgi.loops import initialize_graph_nodes
 from rgi.loops.learning import LearningEngine
 from rgi.memory.activation import ActivationEngine
@@ -57,7 +57,13 @@ class Harness:
         return self.graphs.get(graph_id)
 
     def total_nodes(self) -> int:
-        return sum(len(g.nodes) for g in self.graphs.values())
+        """Nodes counting against the spawn budget: cognitive work graphs only.
+        KNOWLEDGE graphs are the inert parsed world model (one node per
+        module/class/function), so counting them lets corpus size veto all
+        spawning — the L5 collapse: 305 knowledge nodes ate the 200-node
+        budget before any work graph was born."""
+        return sum(len(g.nodes) for g in self.graphs.values()
+                   if g.loop_type != LoopType.KNOWLEDGE)
 
     def depth_of(self, graph: CognitiveGraph) -> int:
         depth, current = 0, graph

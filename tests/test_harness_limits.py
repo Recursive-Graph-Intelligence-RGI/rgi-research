@@ -58,6 +58,24 @@ async def test_governance_blocks_llm_over_budget(tmp_path):
     assert any(e["event"] == "governance_denied" for e in h.audit.events)
 
 
+async def test_knowledge_graph_exempt_from_node_budget(tmp_path):
+    """Regression: the inert world model must not eat the spawn budget.
+    L5 collapse root cause — 305 KNOWLEDGE nodes hit max_total_nodes=200 and
+    every spawn was rejected with node_limit before any work graph was born."""
+    h, root = _harness(tmp_path, max_total_nodes=2)
+    world = CognitiveGraph(loop_type=LoopType.KNOWLEDGE,
+                           state=GraphState(objective="world model"), policy=GraphPolicy())
+    for i in range(500):  # corpus-sized world model, far over budget
+        n = CognitiveNode(type=NodeType.MEMORY, content=f"m{i}",
+                          parent_graph_id=world.id)
+        world.nodes[n.id] = n
+    h.graphs[world.id] = world
+    child_id = await h.request_subgraph_spawn(root.id, {
+        "loop_type": LoopType.EXECUTION, "objective": "real work"})
+    assert child_id is not None
+    assert not any(e.get("reason") == "node_limit" for e in h.audit.events)
+
+
 async def test_spawn_from_unknown_parent_rejected(tmp_path):
     h, root = _harness(tmp_path)
     assert await h.request_subgraph_spawn("nope", {"loop_type": LoopType.EXECUTION,
