@@ -220,14 +220,17 @@ entities today.
    in §6. Run 4 showed the discriminating variable is context pressure, not file
    count; a weak model creates that pressure without a 100+ file benchmark.
 10. v0.2 report hygiene: findings dedup, per-file line attribution.
-11. **Ollama context window (OPEN — user-flagged 2026-08-09):** local models
-    run at Ollama's default `num_ctx` 4096; RGI full-source contexts at C1
-    L3+ reach 8–12k tokens, so Ollama likely truncates silently. Results
-    held anyway (7b 0.711), but substrate quality may be understated for
-    local runs. Deliberately NOT changed mid-C1-series (frozen-methodology
-    rule). Follow-up: set `OLLAMA_CONTEXT_LENGTH=8192` (or per-request
-    `options.num_ctx` via native API) and re-run the C1 upper levels as
-    their own variable — expected outcome measured, not assumed.
+11. ~~**Ollama context window (OPEN — user-flagged 2026-08-09):**~~
+    RESOLVED 2026-08-10 — the 8k follow-up ran as the C1 L5-only
+    confirmation test and FALSIFIED the context-window theory (rgi still
+    collapsed at 8k; single improved 0.299 → 0.708). Real root cause was
+    the KNOWLEDGE-graph node-budget bug, fixed in `f782c28`. Full arc in
+    the Run C1 errata, §6. Original text: local models run at Ollama's
+    default `num_ctx` 4096; RGI full-source contexts at C1 L3+ reach
+    8–12k tokens, so Ollama likely truncates silently. Results held
+    anyway (7b 0.711), but substrate quality may be understated for
+    local runs. Deliberately NOT changed mid-C1-series
+    (frozen-methodology rule).
 12. **C1 generator naming artifact (OPEN):** chain sinks sort first
     alphabetically (chain0_*) so the 30k source excerpt over-covers chain
     files at large levels. Note in C1 limitations; fix = hash-prefix or
@@ -627,9 +630,25 @@ Pre-registered falsification contract:
 benchmark, 5 levels (L1–L5 = 8/16/32/64/128 files, vuln density ~25%,
 cross-file chain depth 1→6), 3 seeds per level, 3 conditions (rgi /
 fixed / single) — 45 cells per model. Harness limits frozen at Run 13
-state for the whole series. Figures (final):
-`docs/reports/figures/fig3_complexity_curve.png` (3-panel recall curves),
-`docs/reports/figures/fig5_efficiency.png` (calls vs level).
+state for the whole series. Figures:
+`docs/reports/figures/fig3_complexity_curve.png` (final post-fix 3-panel
+recall curves), `docs/reports/figures/fig5_efficiency.png` (calls vs
+level), `docs/reports/figures/fig7_l5_context_test.png` (the 8k-context
+falsification mini-experiment, see errata).
+
+**RE-GRADED 2026-08-10.** The original 2026-08-09 grading is retained
+below, marked SUPERSEDED: its L5 "context window" diagnosis was falsified
+by a follow-up experiment, the true root cause (a harness node-budget
+bug) was found and fixed (`f782c28`), and every rgi cell was re-run on
+fixed code. Current numbers and verdict: "C1 errata" and "C1 final
+grading (post-fix)" at the end of this section.
+
+#### C1 original grading (2026-08-09) — SUPERSEDED
+
+*Retained verbatim for the record. The L5 rgi collapses below were caused
+by a harness bug — KNOWLEDGE world-model nodes counted against the spawn
+budget — not by model capability, context length, or topology. Do not
+cite these rgi numbers.*
 
 Mean recall over completed cells; mean LLM calls in parens.
 
@@ -706,6 +725,122 @@ Verdict: hypothesis CONFIRMED through L4, FALSIFIED at L5. The
 Limitations: L1/L2 near-saturated for rgi and fixed — future matrices
   should trim them. 1.5b's retained pre-fix error cells disclosed
   above; 4b/7b tables reflect the 5 re-run cells disclosed above.
+```
+
+#### C1 errata (2026-08-10) — the L5 collapse was a harness bug, not a limit
+
+**Step 1 — the 8k-context experiment falsified the original diagnosis.**
+Pre-registered prediction (carried from the original grading): if the L5
+collapse was the 4096-token context window failing to hold 128 files, an
+L5-only re-run at 8k context should restore rgi. Result: rgi still
+collapsed at L5 with 8k — identical signature (planner emits no plan,
+exactly 1 LLM call, ~40s wall) — and planner prompts measured only
+~1.7k tokens, nowhere near either window. The single-model control DID
+improve at 8k (7b: 0.299 → 0.708), cleanly separating the effects:
+context length binds the monolithic baseline, not the rgi collapse.
+The context-window theory is dead (`fig7_l5_context_test.png`).
+
+**Step 2 — root cause found in code.** `Harness.total_nodes()`
+(`rgi/core/harness.py`) counted the inert KNOWLEDGE world-model graph —
+one MEMORY node per parsed module/class/function, 305 nodes at L5 —
+against `max_total_nodes=200`. At L5 the world model alone exceeded the
+budget before any work graph was born, so every spawn was rejected with
+`reason=node_limit` (audit trail: `spawn_rejected` ×6 verbatim) and the
+run degraded to a single root cell — the identical 1-call collapse
+across all three models. At L4 the world model left only ~50 nodes of
+headroom, which explains the pre-fix L4 topology shrinkage (e.g. 7b
+rgi's 4 calls at L4).
+
+**Step 3 — fix.** Commit `f782c28`: `total_nodes()` counts cognitive
+work graphs only; KNOWLEDGE graphs exempt from the node budget.
+Regression test added; 83/83 pass.
+
+**Step 4 — full re-run (errata protocol).** Every rgi cell re-run on
+fixed code with identical seeds and conditions; pre-fix cells backed up
+and stripped. The fixed and single conditions were unaffected by the
+bug and were NOT re-run. The final matrix has ZERO error cells in all
+three model files. Two 1.5b rgi cells carry status="failed" with high
+recall (0.896/1.0) — excluded from means, disclosed.
+
+**What the errata changes in the record:**
+(a) the pre-fix L4 numbers for 4b/7b were recall-accurate (1.0) but
+topology-suppressed — the flat L1–L4 recall line survived the bug, the
+topology growth under it did not;
+(b) the pre-fix 1.5b numbers were recall-SUPPRESSED at L2–L5 by the same
+bug: 0.792/0.750/0.646/0.000 → 1.000/1.000/0.959/0.927;
+(c) the 8k mini-experiment stands as its own record — prediction,
+result, theory ruled out;
+(d) RETRACTION: the original "break point moves outward with neuron
+strength" claim was an artifact of the bug. On fixed code there is no
+break point within L1–L5 at any model size.
+
+#### C1 final grading (post-fix, 2026-08-10)
+
+Mean recall over completed cells; mean LLM calls in parens. rgi columns
+are post-fix; fixed/single are unchanged from the original run (the bug
+did not affect them; fixed call counts are per-file: 8/16/32/64/128).
+
+**qwen2.5:1.5b** — two rgi cells status="failed" with high recall
+(0.896/1.0), excluded from means (disclosed); L5/fixed has no completed
+cells, so no fixed mean there:
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (8c) | 0.750 (8c) | 0.417 |
+| L2 | 16 | 1.000 (6c) | 0.688 (16c) | 0.250 |
+| L3 | 32 | 1.000 (17c) | 0.844 (32c) | 0.271 |
+| L4 | 64 | 0.959 (14c) | 0.875 (64c) | 0.312 |
+| L5 | 128 | 0.927 (3c) | — (no completed cells) | 0.000 |
+
+**nemotron-3-nano:4b** — clean 45/45, zero error cells:
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (28c) | 1.000 (8c) | 0.667 |
+| L2 | 16 | 1.000 (35c) | 1.000 (16c) | 0.708 |
+| L3 | 32 | 1.000 (28c) | 1.000 (32c) | 0.521 |
+| L4 | 64 | 0.979 (21c) | 1.000 (64c) | 0.479 |
+| L5 | 128 | 0.965 (20c) | 1.000 (128c) | 0.076 |
+
+**qwen2.5:7b** — clean 45/45, zero error cells:
+
+| Level | files | rgi | fixed | single |
+|---|---|---|---|---|
+| L1 | 8 | 1.000 (22c) | 1.000 (8c) | 0.833 |
+| L2 | 16 | 1.000 (31c) | 1.000 (16c) | 0.708 |
+| L3 | 32 | 1.000 (31c) | 0.979 (32c) | 0.313 |
+| L4 | 64 | 1.000 (24c) | 1.000 (64c) | 0.708 |
+| L5 | 128 | 0.951 (4c) | 0.993 (128c) | 0.299 |
+
+```
+Tier 0: GREEN — zero error cells in all three model files. All rgi
+        cells re-run on fixed code (f782c28) with identical seeds and
+        conditions; pre-fix cells backed up and stripped. Two 1.5b rgi
+        cells status="failed" with high recall (0.896/1.0) excluded
+        from means, disclosed.
+Performance rule (contract §1): rgi ≥ 0.927 at EVERY level for EVERY
+        model — flat within seed noise across the entire matrix; single
+        slope negative at every size (7b: 0.833 → 0.299). The benchmark
+        gets harder; rgi does not. CONFIRMED across L1–L5.
+Mechanism rule (contract §2): topology metrics grow with level — HOLDS
+        (fig6_topology_growth.png).
+Break point (contract §3): NONE within L1–L5 on fixed code. rgi beats
+        fixed outright at 1.5b L1–L4 and trails it only at 4b L4/L5 and
+        7b L5 (0.979/0.965 vs 1.000; 0.951 vs 0.993) — margins within
+        seed noise at n=3, with no collapse at any level.
+Efficiency: the "same recall, fraction of the cost" claim now holds
+        across the ENTIRE matrix. At L5: 7b rgi 0.951 at a mean of 4
+        calls vs fixed 0.993 at 128 calls (~20–24 min wall per cell);
+        4b 20 vs 128. The pre-fix caveat (1 call = failure symptom) is
+        retracted — low call counts are now earned, not collapsed.
+Verdict: hypothesis CONFIRMED across the entire matrix:
+  problem complexity ↑ → topology ↑ → performance stable — measured
+  L1–L5 at three model sizes. The original L5 falsification was real
+  data honestly reported; it turned out to be data about a bug, and
+  the pre-registered follow-up machinery (prediction → experiment →
+  falsification → root cause → fix → re-run) is what caught it.
+Limitations: L1/L2 near-saturated for rgi and fixed — future matrices
+  should trim them. L5/fixed at 1.5b still has no completed cells.
 ```
 
 ---

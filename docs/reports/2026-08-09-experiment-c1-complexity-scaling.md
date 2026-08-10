@@ -4,8 +4,10 @@
 This document is the falsification contract: it is written so the
 experiment can kill its own hypothesis.*
 
-**Status: GRADED 2026-08-09** — verdict in §Verdict below; full grading
-in the status report, Run C1
+**Status: GRADED 2026-08-09; RE-GRADED 2026-08-10 post-errata —
+CONFIRMED across the entire matrix L1–L5.** The 2026-08-09 verdict
+below is retained, marked SUPERSEDED; the errata and final verdict are
+in §Errata below. Full grading in the status report, Run C1
 (`docs/reports/2026-08-04-rgi-status-report.md` §6).
 
 ## Hypothesis (Jeff Walters, 2026-08-09)
@@ -86,7 +88,13 @@ recover performance? Maps minimum capability vs complexity.
   source excerpt over-covers chain files at large levels. Verdict
   weights precision and the mechanism rule, not raw recall alone.
 
-## Verdict (GRADED 2026-08-09)
+## Verdict (GRADED 2026-08-09) — SUPERSEDED
+
+*Retained verbatim for the record. The L5 collapse and the
+"context-window" diagnosis below were both products of a harness bug
+(KNOWLEDGE world-model nodes counted against the spawn budget), found
+and fixed 2026-08-10 — see §Errata. The "break point moves with neuron
+strength" claim is RETRACTED.*
 
 The hypothesis is **CONFIRMED through L4 and FALSIFIED at L5.** RGI
 recall is flat at 1.000 across L1–L4 for both nemotron-3-nano:4b and
@@ -119,3 +127,69 @@ tables reflect 5 re-run cells after the null-suggestions fix
 one 4b L5 rgi cell excluded as planner collapse; rgi's 1-call L5
 counts are the failure symptom, not efficiency — the cost-advantage
 claim holds only L1–L4.
+
+## Errata (2026-08-10) — L5 collapse was a harness bug; hypothesis CONFIRMED post-fix
+
+**1. The 8k-context experiment falsified the original diagnosis.**
+Pre-registered prediction (from the superseded verdict): if the L5
+collapse was the 4096-token context window, an L5-only re-run at 8k
+context should restore rgi. Result: rgi still collapsed at L5 with 8k —
+identical signature (no plan, exactly 1 LLM call, ~40s wall) — and
+planner prompts measured only ~1.7k tokens. The single-model control
+DID improve at 8k (7b: 0.299 → 0.708), cleanly separating the effects.
+The context-window theory is dead
+(`docs/reports/figures/fig7_l5_context_test.png`).
+
+**2. Root cause (code-level).** `Harness.total_nodes()`
+(`rgi/core/harness.py`) counted the inert KNOWLEDGE world-model graph
+(one MEMORY node per parsed module/class/function — 305 nodes at L5)
+against `max_total_nodes=200`. At L5 the world model alone exceeded the
+budget before any work graph existed; every spawn was rejected with
+`reason=node_limit` (audit trail: `spawn_rejected` ×6 verbatim) and the
+run degraded to a single root cell — the identical 1-call collapse
+across all three models. At L4 the budget left only ~50 nodes of
+headroom, explaining the pre-fix L4 topology shrinkage.
+
+**3. Fix.** Commit `f782c28`: `total_nodes()` counts cognitive work
+graphs only; KNOWLEDGE graphs exempt. Regression test added; 83/83
+pass.
+
+**4. Full re-run (errata protocol).** All rgi cells re-run on fixed
+code with identical seeds and conditions; pre-fix cells backed up and
+stripped. fixed and single were unaffected by the bug and were NOT
+re-run. Final matrix: ZERO error cells in all three model files; two
+1.5b rgi cells carry status="failed" with high recall (0.896/1.0),
+excluded from means and disclosed.
+
+**Errata consequences for the record:** (a) the pre-fix L4 numbers for
+4b/7b were recall-accurate (1.0) but topology-suppressed; (b) the
+pre-fix 1.5b numbers were recall-suppressed at L2–L5 by the same bug
+(0.792/0.750/0.646/0.000 → 1.000/1.000/0.959/0.927); (c) the 8k
+mini-experiment stands as its own record — prediction, result, theory
+ruled out; (d) RETRACTION — the "break point moves with neuron
+strength" claim was an artifact of the bug: on fixed code there is no
+break point within L1–L5 at any model size.
+
+## Verdict (RE-GRADED 2026-08-10, post-fix)
+
+The pre-registered hypothesis — *problem complexity ↑ → topology ↑ →
+performance stable* — is **CONFIRMED across the entire matrix L1–L5.**
+rgi recall is ≥ 0.927 at every level for every model; the break point
+does not exist within L1–L5 on fixed code; single-model degradation
+stands at every size (7b: 0.833 → 0.299), so the flat rgi line is not
+a too-easy-test artifact; and the efficiency gap at L5 is 4 calls (7b
+rgi, 0.951) vs 128 (fixed, 0.993). rgi trails fixed only at 4b L4/L5
+and 7b L5, by margins within seed noise at n=3, and beats fixed
+outright at 1.5b L1–L4. The superseded 2026-08-09 verdict
+("CONFIRMED through L4, FALSIFIED at L5") was real data honestly
+reported — it was data about a bug, and the falsification contract's
+own follow-up machinery (prediction → experiment → falsification →
+root cause → fix → re-run) is what caught it.
+
+**Per-model break points (post-fix):** none within L1–L5 — 1.5b rgi
+0.927 at L5; 4b 0.965; 7b 0.951.
+
+Full post-fix tables and grading: status report, Run C1, "C1 final
+grading (post-fix, 2026-08-10)"
+(`docs/reports/2026-08-04-rgi-status-report.md` §6). Final curve:
+`docs/reports/figures/fig3_complexity_curve.png`.

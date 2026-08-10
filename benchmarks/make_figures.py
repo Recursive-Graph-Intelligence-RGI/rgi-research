@@ -179,6 +179,67 @@ def fig5_efficiency():
     plt.close(fig)
 
 
+def _c1_rgi_topology():
+    """Per model, per level: mean rgi-condition topology_metrics over completed cells."""
+    keys = ("graphs", "graph_cells", "max_depth", "max_width", "spawn_approved")
+    out = {}
+    for model, path in C1_FILES.items():
+        if not Path(path).exists():
+            continue
+        buckets = {}
+        for c in _load(path):
+            if c.get("status") != "completed" or c.get("condition") != "rgi":
+                continue
+            tm = c.get("topology_metrics") or {}
+            b = buckets.setdefault(c["level"], {k: [] for k in keys})
+            for k in keys:
+                if tm.get(k) is not None:
+                    b[k].append(tm[k])
+        out[model] = {lv: {k: (sum(v) / len(v) if v else None) for k, v in b.items()}
+                      for lv, b in buckets.items()}
+    return out
+
+
+def fig6_topology_growth():
+    """Does RGI grow deeper/wider graphs as problems get harder?
+    3x3 small-multiple: rows = models, cols = graph size / max depth / max width.
+    The L5 collapse (spawn budget refuses every child graph) is left unsmoothed."""
+    topo = _c1_rgi_topology()
+    fig, axes = plt.subplots(3, 3, figsize=(11, 9), sharex=True)
+    for row, (model, lv) in enumerate(topo.items()):
+        def ys(key):
+            return [lv.get(l, {}).get(key) for l in LEVELS]
+        ax = axes[row][0]
+        ax.plot(N_FILES, ys("graph_cells"), "-", color=C["rgi"], lw=2, marker="o", ms=6,
+                label="graph_cells (nodes)")
+        ax.plot(N_FILES, ys("graphs"), "--", color=C["prefix"], lw=2, marker="s", ms=6,
+                label="graphs (subgraphs spawned)")
+        axes[row][1].plot(N_FILES, ys("max_depth"), "-", color=C["rgi"], lw=2,
+                          marker="D", ms=6)
+        axes[row][2].plot(N_FILES, ys("max_width"), "-", color=C["rgi"], lw=2,
+                          marker="^", ms=6)
+        for col in range(3):
+            a = axes[row][col]
+            a.set_xscale("log", base=2)
+            a.set_xticks(N_FILES)
+            a.set_xticklabels([f"{l}\n{n}" for l, n in zip(LEVELS, N_FILES)], fontsize=8)
+            a.tick_params(axis="y", labelsize=9)
+            a.grid(alpha=0.25)
+        axes[row][0].set_ylabel(model, fontsize=11)
+    axes[0][0].set_title("graph size (mean count)", fontsize=11)
+    axes[0][1].set_title("max depth (mean)", fontsize=11)
+    axes[0][2].set_title("max width (mean)", fontsize=11)
+    axes[2][1].set_xlabel("complexity level (files)", fontsize=10)
+    fig.suptitle("Topology growth vs problem complexity (C1, rgi condition)\n"
+                 "Size and width grow L1→L3; depth stays flat at 2; "
+                 "L5 shows the spawn-budget collapse (1 graph, depth 0)", fontsize=12)
+    fig.legend(*axes[0][0].get_legend_handles_labels(), loc="lower center",
+               ncol=2, fontsize=9, frameon=False)
+    fig.tight_layout(rect=(0, 0.05, 1, 0.92))
+    fig.savefig(FIGDIR / "fig6_topology_growth.png", dpi=150)
+    plt.close(fig)
+
+
 def fig4_coupling():
     """The mechanism: graphs spawned vs recall, per RGI cell."""
     pts = []
@@ -214,4 +275,5 @@ if __name__ == "__main__":
     fig3_complexity_curve()
     fig4_coupling()
     fig5_efficiency()
+    fig6_topology_growth()
     print(f"figures written to {FIGDIR}/")
