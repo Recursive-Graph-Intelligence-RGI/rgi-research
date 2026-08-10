@@ -18,6 +18,22 @@ def is_noise(raw: dict) -> bool:
     return False
 
 
+def format_finding_for_prompt(finding: dict) -> str:
+    """Return a compact, human-readable string for a finding in prompts."""
+    if isinstance(finding, dict):
+        inner = finding.get("finding")
+        if isinstance(inner, str):
+            return inner
+        if isinstance(inner, dict):
+            finding = inner
+        return (
+            f"{finding.get('kind', 'finding')} ({finding.get('severity', '?')}) — "
+            f"{finding.get('detail', '')} @ {finding.get('file', '?')}:{finding.get('line', '?')} "
+            f"[{finding.get('symbol', '?')}]"
+        )
+    return str(finding)
+
+
 def normalize_finding(raw: dict) -> dict | None:
     """Return a canonical finding dict or None if it is noise."""
     if is_noise(raw):

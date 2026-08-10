@@ -9,7 +9,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from rgi.core.findings import normalize_finding
+from rgi.core.findings import format_finding_for_prompt, normalize_finding
 from rgi.core.harness import Harness
 from rgi.core.models import (
     CognitiveEdge, CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
@@ -325,21 +325,6 @@ async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
                          new_confidence=corrected_confidence)
 
 
-def _format_challenged_finding(finding):
-    if isinstance(finding, dict):
-        inner = finding.get("finding")
-        if isinstance(inner, str):
-            return inner
-        if isinstance(inner, dict):
-            finding = inner
-        return (
-            f"{finding.get('kind', 'finding')} ({finding.get('severity', '?')}) — "
-            f"{finding.get('detail', '')} @ {finding.get('file', '?')}:{finding.get('line', '?')} "
-            f"[{finding.get('symbol', '?')}]"
-        )
-    return str(finding)
-
-
 async def verify_findings(node: CognitiveNode, target_nodes: list,
                           harness: Harness) -> dict:
     # Challenge any completed reasoning node that is ungrounded or below threshold.
@@ -368,7 +353,7 @@ async def verify_findings(node: CognitiveNode, target_nodes: list,
                              node_id=node.id, reason=decision.reason)
         return {"finding_valid": True, "confidence": 0.0, "detail": "budget_exhausted"}
     challenged_text = "\n".join(
-        f"- {_format_challenged_finding(t.metadata['challenged_finding'])}"
+        f"- {format_finding_for_prompt(t.metadata['challenged_finding'])}"
         for t in challenged
     )
     result = await harness.llm_client.reason(
