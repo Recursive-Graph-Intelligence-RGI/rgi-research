@@ -424,7 +424,7 @@ def _uncovered_files(harness: Harness) -> list:
         for n in g.nodes.values():
             if isinstance(n.result, dict):
                 seen.update(re.findall(r"===== (\S+\.py) =====", json.dumps(n.result)))
-    return [f for f in sorted(target.glob("*.py")) if f.name not in seen]
+    return [f for f in sorted(target.rglob("*.py")) if f.name not in seen]
 
 
 def all_subgraphs_completed(graph: CognitiveGraph, harness: Harness) -> bool:

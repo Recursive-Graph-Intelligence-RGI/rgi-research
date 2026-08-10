@@ -28,13 +28,13 @@ def _read_source(path: str) -> str:
     """Tools accept a file OR a directory (all *.py files concatenated)."""
     p = Path(path)
     if p.is_dir():
-        return "\n".join(f.read_text() for f in sorted(p.glob("*.py")))
+        return "\n".join(f.read_text() for f in sorted(p.rglob("*.py")))
     return p.read_text()
 
 
 def _py_files(path: str) -> list:
     p = Path(path)
-    return sorted(p.glob("*.py")) if p.is_dir() else [p]
+    return sorted(p.rglob("*.py")) if p.is_dir() else [p]
 
 
 class ToolRegistry:

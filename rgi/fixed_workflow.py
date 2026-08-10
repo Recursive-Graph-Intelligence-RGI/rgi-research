@@ -14,7 +14,7 @@ TOOLS = ("parse_python_file", "check_jwt_usage", "find_hardcoded_secrets", "grep
 async def run_fixed_workflow(path: str, objective: str, llm) -> dict:
     registry = ToolRegistry()
     findings = []
-    for py_file in sorted(Path(path).glob("*.py")):
+    for py_file in sorted(Path(path).rglob("*.py")):
         tool_results = {}
         for tool in TOOLS:
             tool_results[tool] = await registry.execute(tool, {"path": str(py_file)})

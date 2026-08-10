@@ -1,0 +1,255 @@
+{
+ "vulns": [
+  {
+   "id": "dvpwa-001",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "dvpwa-002",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "dvpwa-003",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "dvpwa-004",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "dvpwa-005",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "dvpwa-006",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "dvpwa-007",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-008",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "dvpwa-009",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-010",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-011",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "dvpwa-012",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-013",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-014",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-015",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-016",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-017",
+   "terms": [
+    "missing rate limiting",
+    "rate limiting",
+    "brute force",
+    "brute-force",
+    "bruteforce"
+   ]
+  },
+  {
+   "id": "dvpwa-018",
+   "terms": [
+    "missing rate limiting",
+    "rate limiting",
+    "brute force",
+    "brute-force",
+    "bruteforce"
+   ]
+  },
+  {
+   "id": "dvpwa-019",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "dvpwa-020",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "dvpwa-021",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "dvpwa-022",
+   "terms": [
+    "vulnerable dependency",
+    "outdated dependency",
+    "known vulnerability",
+    "vulnerable package",
+    "cve-2019-11358"
+   ]
+  },
+  {
+   "id": "dvpwa-023",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "readme-session-fixation",
+   "terms": [
+    "session fixation",
+    "session identifier",
+    "session id rotation",
+    "session cookie"
+   ]
+  },
+  {
+   "id": "readme-weak-password-hash",
+   "terms": [
+    "md5",
+    "weak hash",
+    "weak hashing",
+    "rainbow table"
+   ]
+  },
+  {
+   "id": "readme-csrf",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  }
+ ],
+ "meta": {
+  "repo": "https://github.com/anxolerd/dvpwa",
+  "commit": "a1d8f89fac2e57093189853c6527c2b01fc1d9c1",
+  "n_files": 21,
+  "source_urls": [
+   "https://github.com/anxolerd/dvpwa/blob/master/README.rst",
+   "https://github.com/kolega-ai/Real-Vuln-Benchmark/tree/main/ground-truth/realvuln-dvpwa/ground-truth.json"
+  ],
+  "granularity": "individual findings (RealVuln labels, is_vulnerable=true) plus 3 README-documented classes",
+  "notes": "README Vulnerabilities section documents session fixation, SQL injection, stored XSS, md5 password hashing, CSRF. Session fixation, weak md5 hashing and CSRF have no direct RealVuln class and are added as readme-* entries. dvpwa-022 (vulnerable jquery, CVE-2019-11358) is in a .js file and many stored_xss findings are in .jinja2 templates - outside the Python-only parser scope; kept for documentation fidelity, disclosed here. RealVuln pinned commit matches this checkout."
+ }
+}

@@ -19,7 +19,7 @@ class PerceptionLayer:
         )
         module_nodes: dict[str, str] = {}  # module name -> node id
 
-        for py_file in sorted(root.glob("*.py")):
+        for py_file in sorted(root.rglob("*.py")):
             tree = ast.parse(py_file.read_text())
             module = py_file.stem
 
@@ -54,7 +54,7 @@ class PerceptionLayer:
             mod_node.metadata["imports"] = imports
 
         # Inferred dependency edges between local modules (confidence 0.7)
-        for py_file in sorted(root.glob("*.py")):
+        for py_file in sorted(root.rglob("*.py")):
             module = py_file.stem
             src_id = module_nodes[module]
             for imp in graph.nodes[src_id].metadata.get("imports", []):

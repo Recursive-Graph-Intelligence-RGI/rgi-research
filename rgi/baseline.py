@@ -14,7 +14,7 @@ MOCK_CAVEAT = (
 async def run_baseline(path: str, objective: str, llm) -> dict:
     source = "\n\n".join(
         f"# FILE: {f.name}\n{f.read_text()}"
-        for f in sorted(Path(path).glob("*.py"))
+        for f in sorted(Path(path).rglob("*.py"))
     )
     task = f"{objective}\nAnalyze this entire codebase:\n\n{source}"
     result = await llm.reason(task, "")

@@ -1,0 +1,328 @@
+{
+ "vulns": [
+  {
+   "id": "vulpy-001",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "vulpy-002",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "vulpy-003",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "vulpy-004",
+   "terms": [
+    "stored xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "vulpy-005",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "vulpy-006",
+   "terms": [
+    "insecure session",
+    "session fixation",
+    "session impersonation",
+    "session management"
+   ]
+  },
+  {
+   "id": "vulpy-007",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "vulpy-008",
+   "terms": [
+    "plaintext password",
+    "plain text password",
+    "cleartext password",
+    "unencrypted password"
+   ]
+  },
+  {
+   "id": "vulpy-009",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "vulpy-010",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "vulpy-011",
+   "terms": [
+    "weak random",
+    "insecure random",
+    "predictable random",
+    "weak prng",
+    "weak random number"
+   ]
+  },
+  {
+   "id": "vulpy-012",
+   "terms": [
+    "path traversal",
+    "directory traversal",
+    "lfi"
+   ]
+  },
+  {
+   "id": "vulpy-013",
+   "terms": [
+    "missing authentication",
+    "broken authentication",
+    "auth bypass",
+    "unauthenticated"
+   ]
+  },
+  {
+   "id": "vulpy-014",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "vulpy-015",
+   "terms": [
+    "missing authentication",
+    "broken authentication",
+    "auth bypass",
+    "unauthenticated"
+   ]
+  },
+  {
+   "id": "vulpy-016",
+   "terms": [
+    "insecure cookie",
+    "missing httponly",
+    "httponly",
+    "secure flag",
+    "session cookie"
+   ]
+  },
+  {
+   "id": "vulpy-017",
+   "terms": [
+    "password complexity",
+    "weak password",
+    "password policy"
+   ]
+  },
+  {
+   "id": "vulpy-018",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "vulpy-019",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "vulpy-020",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "vulpy-021",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "vulpy-022",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "vulpy-023",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "vulpy-029",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "vulpy-030",
+   "terms": [
+    "idor",
+    "insecure direct object reference",
+    "broken access control"
+   ]
+  },
+  {
+   "id": "vulpy-031",
+   "terms": [
+    "path traversal",
+    "directory traversal",
+    "lfi"
+   ]
+  },
+  {
+   "id": "vulpy-032",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "vulpy-033",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "vulpy-034",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "vulpy-035",
+   "terms": [
+    "missing rate limiting",
+    "rate limiting",
+    "brute force",
+    "brute-force",
+    "bruteforce"
+   ]
+  },
+  {
+   "id": "vulpy-036",
+   "terms": [
+    "missing rate limiting",
+    "rate limiting",
+    "brute force",
+    "brute-force",
+    "bruteforce"
+   ]
+  },
+  {
+   "id": "vulpy-037",
+   "terms": [
+    "idor",
+    "insecure direct object reference",
+    "broken access control"
+   ]
+  },
+  {
+   "id": "vulpy-038",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "vulpy-fp-011",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "vulpy-052",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "readme-insecure-deserialization",
+   "terms": [
+    "insecure deserialization",
+    "pickle",
+    "deserialization"
+   ]
+  }
+ ],
+ "meta": {
+  "repo": "https://github.com/fportantier/vulpy",
+  "commit": "5249cc8b05a1c37f6b2f757b1cf16a509c327122",
+  "n_files": 18,
+  "source_urls": [
+   "https://github.com/fportantier/vulpy/blob/master/README.rst",
+   "https://github.com/kolega-ai/Real-Vuln-Benchmark/tree/main/ground-truth/realvuln-vulpy/ground-truth.json"
+  ],
+  "granularity": "individual findings (RealVuln labels, is_vulnerable=true, file under bad/) plus 1 README-documented class",
+  "notes": "Target is the bad/ variant only; n_files=18 is the recursive *.py count under data/real/vulpy/bad (whole repo has 57). RealVuln labels the whole repo (57 vulnerable findings); the 22 findings under good/ and utils/ are excluded as out of target scope. README additionally documents Insecure Deserialization, which has no RealVuln finding, added as readme-insecure-deserialization. RealVuln pinned commit matches this checkout."
+ }
+}

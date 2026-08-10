@@ -32,10 +32,20 @@ C1's limitations section promised.*
 
 | level | target | ~.py files | ground-truth source |
 |-------|--------|-----------|---------------------|
-| R1 | vulpy (`bad/`) | ~15 | documented vuln classes + RealVuln labels (~54) |
-| R2 | dvpwa | ~30 | README vuln list + RealVuln labels (22) |
-| R3 | aiohttp @ v3.9.1 | ~75 | NVD CVEs in checkout window (CVE-2024-23334 et al.) |
-| R4 | OWASP PyGoat | ~150 | per-lab documented vulns + RealVuln labels (70) |
+| R1 | vulpy (`bad/`) | 18 (measured) | RealVuln labels pinned to our checkout + README (36) |
+| R2 | dvpwa | 21 (measured) | RealVuln + README vuln list (26) |
+| R3 | aiohttp @ v3.9.1 | 132 (measured) | NVD/GitHub advisories, 3.9.x-fix window (3) |
+| R4 | OWASP PyGoat | 80 (measured) | RealVuln labels pinned to our checkout (78) |
+
+*Measured-count note (2026-08-10): checkout measurement swapped the
+estimated size order — pygoat (80) is smaller than aiohttp (132). Run
+order follows measured file count: R1, R2, R4, R3. Ground-truth entry
+counts (36/26/78/3) are the RealVuln/advisory counts at our pinned
+commits, which differ from the pre-run estimates (~54/22/~70/handful);
+the contract rule "prefer the documented list over hitting numbers"
+governs. aiohttp CVE window: only CVEs with a 3.9.x patch release are
+included (CVE-2024-23334, -27306, -30251); advisory ranges without a
+3.9.x fix are excluded, reasoning in meta.*
 
 Reserve: dsvpwa (32 labels) if any target proves un-runnable.
 Disclosure registered pre-run: R1/R2/R4 are *purposely vulnerable* —

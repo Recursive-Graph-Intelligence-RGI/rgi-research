@@ -1,0 +1,708 @@
+{
+ "vulns": [
+  {
+   "id": "pygoat-001",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "pygoat-002",
+   "terms": [
+    "sql injection",
+    "sqli"
+   ]
+  },
+  {
+   "id": "pygoat-003",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-004",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-005",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-006",
+   "terms": [
+    "insecure deserialization",
+    "pickle",
+    "deserialization"
+   ]
+  },
+  {
+   "id": "pygoat-007",
+   "terms": [
+    "xxe",
+    "xml external entity"
+   ]
+  },
+  {
+   "id": "pygoat-008",
+   "terms": [
+    "command injection",
+    "rce",
+    "remote code execution",
+    "os command injection"
+   ]
+  },
+  {
+   "id": "pygoat-009",
+   "terms": [
+    "code injection",
+    "eval",
+    "exec",
+    "python injection"
+   ]
+  },
+  {
+   "id": "pygoat-010",
+   "terms": [
+    "broken authentication",
+    "authentication bypass",
+    "auth bypass"
+   ]
+  },
+  {
+   "id": "pygoat-011",
+   "terms": [
+    "broken access control",
+    "idor",
+    "access control",
+    "authorization bypass"
+   ]
+  },
+  {
+   "id": "pygoat-012",
+   "terms": [
+    "broken access control",
+    "idor",
+    "access control",
+    "authorization bypass"
+   ]
+  },
+  {
+   "id": "pygoat-013",
+   "terms": [
+    "broken access control",
+    "idor",
+    "access control",
+    "authorization bypass"
+   ]
+  },
+  {
+   "id": "pygoat-014",
+   "terms": [
+    "missing authorization",
+    "missing authorisation",
+    "authorization bypass",
+    "access control"
+   ]
+  },
+  {
+   "id": "pygoat-015",
+   "terms": [
+    "path traversal",
+    "directory traversal",
+    "lfi"
+   ]
+  },
+  {
+   "id": "pygoat-016",
+   "terms": [
+    "ssrf",
+    "server-side request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-017",
+   "terms": [
+    "ssti",
+    "template injection",
+    "server-side template injection"
+   ]
+  },
+  {
+   "id": "pygoat-018",
+   "terms": [
+    "insecure deserialization",
+    "pickle",
+    "deserialization"
+   ]
+  },
+  {
+   "id": "pygoat-019",
+   "terms": [
+    "code injection",
+    "eval",
+    "exec",
+    "python injection"
+   ]
+  },
+  {
+   "id": "pygoat-020",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-021",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-022",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-023",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-024",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-025",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-026",
+   "terms": [
+    "code injection",
+    "eval",
+    "exec",
+    "python injection"
+   ]
+  },
+  {
+   "id": "pygoat-027",
+   "terms": [
+    "command injection",
+    "rce",
+    "remote code execution",
+    "os command injection"
+   ]
+  },
+  {
+   "id": "pygoat-028",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-029",
+   "terms": [
+    "weak cryptography",
+    "weak crypto",
+    "weak cipher",
+    "weak encryption",
+    "insecure cryptographic"
+   ]
+  },
+  {
+   "id": "pygoat-030",
+   "terms": [
+    "weak cryptography",
+    "weak crypto",
+    "weak cipher",
+    "weak encryption",
+    "insecure cryptographic"
+   ]
+  },
+  {
+   "id": "pygoat-031",
+   "terms": [
+    "broken access control",
+    "idor",
+    "access control",
+    "authorization bypass"
+   ]
+  },
+  {
+   "id": "pygoat-032",
+   "terms": [
+    "broken access control",
+    "idor",
+    "access control",
+    "authorization bypass"
+   ]
+  },
+  {
+   "id": "pygoat-033",
+   "terms": [
+    "plaintext password",
+    "plain text password",
+    "cleartext password",
+    "unencrypted password"
+   ]
+  },
+  {
+   "id": "pygoat-034",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-035",
+   "terms": [
+    "arbitrary file write",
+    "unrestricted file upload",
+    "file upload",
+    "arbitrary file"
+   ]
+  },
+  {
+   "id": "pygoat-036",
+   "terms": [
+    "arbitrary file write",
+    "unrestricted file upload",
+    "file upload",
+    "arbitrary file"
+   ]
+  },
+  {
+   "id": "pygoat-037",
+   "terms": [
+    "arbitrary file write",
+    "unrestricted file upload",
+    "file upload",
+    "arbitrary file"
+   ]
+  },
+  {
+   "id": "pygoat-038",
+   "terms": [
+    "insecure deserialization",
+    "pickle",
+    "deserialization"
+   ]
+  },
+  {
+   "id": "pygoat-039",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-040",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-041",
+   "terms": [
+    "broken authentication",
+    "authentication bypass",
+    "auth bypass"
+   ]
+  },
+  {
+   "id": "pygoat-042",
+   "terms": [
+    "plaintext password",
+    "plain text password",
+    "cleartext password",
+    "unencrypted password"
+   ]
+  },
+  {
+   "id": "pygoat-043",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-044",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-045",
+   "terms": [
+    "missing authorization",
+    "missing authorisation",
+    "authorization bypass",
+    "access control"
+   ]
+  },
+  {
+   "id": "pygoat-046",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-047",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-048",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-049",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-050",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-051",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-052",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-053",
+   "terms": [
+    "command injection",
+    "rce",
+    "remote code execution",
+    "os command injection"
+   ]
+  },
+  {
+   "id": "pygoat-054",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-055",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-056",
+   "terms": [
+    "weak cryptography",
+    "weak crypto",
+    "weak cipher",
+    "weak encryption",
+    "insecure cryptographic"
+   ]
+  },
+  {
+   "id": "pygoat-057",
+   "terms": [
+    "weak cryptography",
+    "weak crypto",
+    "weak cipher",
+    "weak encryption",
+    "insecure cryptographic"
+   ]
+  },
+  {
+   "id": "pygoat-058",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-059",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-060",
+   "terms": [
+    "hardcoded credential",
+    "hardcoded password",
+    "hardcoded secret",
+    "hardcoded api key",
+    "hardcoded key"
+   ]
+  },
+  {
+   "id": "pygoat-061",
+   "terms": [
+    "dom xss",
+    "dom-based xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-062",
+   "terms": [
+    "reflected xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-063",
+   "terms": [
+    "dom xss",
+    "dom-based xss",
+    "cross-site scripting",
+    "xss"
+   ]
+  },
+  {
+   "id": "pygoat-064",
+   "terms": [
+    "weak cryptography",
+    "weak crypto",
+    "weak cipher",
+    "weak encryption",
+    "insecure cryptographic"
+   ]
+  },
+  {
+   "id": "pygoat-065",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  },
+  {
+   "id": "pygoat-066",
+   "terms": [
+    "missing rate limiting",
+    "rate limiting",
+    "brute force",
+    "brute-force",
+    "bruteforce"
+   ]
+  },
+  {
+   "id": "pygoat-067",
+   "terms": [
+    "security misconfiguration",
+    "misconfiguration",
+    "debug mode",
+    "insecure configuration",
+    "debug=true"
+   ]
+  },
+  {
+   "id": "pygoat-068",
+   "terms": [
+    "log injection",
+    "log forging",
+    "log manipulation"
+   ]
+  },
+  {
+   "id": "pygoat-069",
+   "terms": [
+    "information disclosure",
+    "information leak",
+    "sensitive data",
+    "data exposure"
+   ]
+  },
+  {
+   "id": "pygoat-070",
+   "terms": [
+    "log injection",
+    "log forging",
+    "log manipulation"
+   ]
+  },
+  {
+   "id": "pygoat-fp-019",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-020",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-021",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-022",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-023",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-024",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-fp-025",
+   "terms": [
+    "csrf",
+    "cross-site request forgery"
+   ]
+  },
+  {
+   "id": "pygoat-071",
+   "terms": [
+    "sensitive data exposure",
+    "sensitive data",
+    "information disclosure",
+    "data exposure",
+    "information leak"
+   ]
+  }
+ ],
+ "meta": {
+  "repo": "https://github.com/adeyosemanputra/pygoat",
+  "commit": "2fb0c600245f50670e8b9233c784afe61e8b340b",
+  "n_files": 80,
+  "source_urls": [
+   "https://github.com/adeyosemanputra/pygoat/blob/master/README.md",
+   "https://github.com/adeyosemanputra/pygoat/blob/master/Solutions/solution.md",
+   "https://github.com/kolega-ai/Real-Vuln-Benchmark/tree/main/ground-truth/realvuln-pygoat/ground-truth.json"
+  ],
+  "granularity": "individual findings (RealVuln labels, is_vulnerable=true)",
+  "notes": "PyGoat README documents OWASP-top-ten-based intentionally vulnerable labs; per-lab solutions in Solutions/solution.md. RealVuln provides per-finding labels (78 vulnerable findings at this exact commit) which subsume the lab classes; used as-is. RealVuln pinned commit matches this checkout."
+ }
+}
