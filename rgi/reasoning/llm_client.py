@@ -9,7 +9,8 @@ from typing import Callable, Optional
 SYSTEM_PROMPT = (
     "You are a specialized reasoning node in a recursive graph intelligence "
     "system. Analyze the given context and return structured JSON: "
-    '{"finding": str, "confidence": float (0.0-1.0), "reasoning": str, '
+    '{"finding": {"kind": str, "severity": str, "detail": str, "file": str, '
+    '"line": int, "symbol": str}, "confidence": float (0.0-1.0), "reasoning": str, '
     '"recommended_action": str, "suggested_subgraphs": [str]}. '
     'When asked to challenge a finding, also include "finding_valid": bool. '
     'If you need to inspect the corpus programmatically before concluding, '
@@ -32,40 +33,69 @@ def _resp(finding, confidence, reasoning="", action="", subgraphs=None, **extra)
     }
 
 
+def _mf(kind, severity, detail, file=None, line=None, symbol=None):
+    """Helper for structured mock vulnerability findings."""
+    return {
+        "kind": kind,
+        "severity": severity,
+        "detail": detail,
+        "file": file,
+        "line": line,
+        "symbol": symbol,
+    }
+
+
 def default_mock_script() -> dict[str, list[dict]]:
     """Deterministic responses for the demo flow. Order matters: the first
     key found as a substring of the task (lowercased) wins."""
     return {
         "decompose": [_resp(
-            "Codebase has 4 auth-related modules requiring analysis", 0.9,
+            _mf("summary", "info",
+                "Codebase has 4 auth-related modules requiring analysis"),
+            0.9,
             reasoning="Perception found JWT, session, login, config modules",
             action="spawn_execution_subgraphs",
             subgraphs=["JWT Security Analysis", "Session Management Analysis"],
         )],
         "strict re-analysis": [_resp(
-            "Confirmed: JWT tokens never expire (critical) and secret is weak", 0.88,
+            _mf("vulnerability", "critical",
+                "JWT tokens never expire and the signing secret is weak",
+                file="auth.py", line=12, symbol="verify_token"),
+            0.88,
             reasoning="Strict criteria: missing exp claim + HS256 + short secret",
             action="patch_auth_py",
             subgraphs=["JWT Deep Dive: weak secrets and algorithm confusion"],
         )],
         "challenge": [_resp(
-            "Original finding is valid and was under-confident", 0.9,
+            _mf("verification", "info",
+                "Original finding is valid and was under-confident",
+                file="auth.py", line=12, symbol="verify_token"),
+            0.9,
             reasoning="Missing expiration is unconditionally a vulnerability here",
             action="trigger_correction",
             finding_valid=False,
         )],
         "deep dive": [_resp(
-            "Weak secret, algorithm confusion exposure, no refresh rotation", 0.9,
+            _mf("vulnerability", "high",
+                "Weak secret, algorithm confusion exposure, no refresh rotation",
+                file="config.py", line=8, symbol="SECRET_KEY"),
+            0.9,
             reasoning="HS256-only + hardcoded short secret + no rotation",
             action="report_findings",
         )],
         "session management analysis": [_resp(
-            "Sessions have no timeout and no invalidation on logout", 0.85,
+            _mf("vulnerability", "high",
+                "Sessions have no timeout and no invalidation on logout",
+                file="session.py", line=22, symbol="SessionStore"),
+            0.85,
             reasoning="SessionStore never checks age",
             action="add_session_expiry",
         )],
         "jwt security analysis": [_resp(
-            "JWT handling may be missing expiration verification", 0.6,
+            _mf("vulnerability", "medium",
+                "JWT handling may be missing expiration verification",
+                file="auth.py", line=12, symbol="verify_token"),
+            0.6,
             reasoning="jwt.decode seen; exp handling unclear from surface scan",
             action="verify_finding",
         )],

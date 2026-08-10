@@ -47,9 +47,12 @@ async def test_planning_graph_spawns_children_from_suggestions(tmp_path):
     children = [h.get_graph(sid) for sid in done.subgraph_ids]
     assert all(c.loop_type == LoopType.EXECUTION for c in children)
     assert all(c.state.status in ("completed", "failed") for c in children)
-    # Mock subgraph findings are ungrounded and below the merge threshold,
-    # so the new grounding gate drops them.
-    assert not done.memory_snapshot.get("merged_findings")
+    # Mock subgraph findings are now structured and grounded, so the merge
+    # gate keeps them and records their child graph provenance.
+    merged = done.memory_snapshot.get("merged_findings", [])
+    assert merged
+    assert all("from_graph" in f for f in merged)
+    assert any(f["kind"] == "vulnerability" for f in merged)
 
 
 async def test_stagnation_guard_fails_empty_graph(tmp_path):

@@ -11,8 +11,12 @@ async def test_mock_matches_by_keyword_and_counts_calls():
 
 async def test_mock_script_sequence_pops_then_repeats_last():
     script = {"jwt": [
-        {"finding": "first", "confidence": 0.6, "reasoning": "", "recommended_action": "", "suggested_subgraphs": []},
-        {"finding": "second", "confidence": 0.88, "reasoning": "", "recommended_action": "", "suggested_subgraphs": []},
+        {"finding": {"kind": "vulnerability", "severity": "medium", "detail": "first",
+                     "file": "auth.py", "line": 1, "symbol": "verify"},
+         "confidence": 0.6, "reasoning": "", "recommended_action": "", "suggested_subgraphs": []},
+        {"finding": {"kind": "vulnerability", "severity": "high", "detail": "second",
+                     "file": "auth.py", "line": 2, "symbol": "verify"},
+         "confidence": 0.88, "reasoning": "", "recommended_action": "", "suggested_subgraphs": []},
     ]}
     client = MockLLMClient(script=script)
     r1 = await client.reason("jwt task", "")
@@ -34,12 +38,17 @@ async def test_default_script_covers_demo_flow():
     assert len(plan["suggested_subgraphs"]) >= 2
     jwt = await client.reason("analyze findings for jwt security analysis", "")
     assert jwt["confidence"] < 0.7                     # triggers correction
+    assert isinstance(jwt["finding"], dict)
+    assert jwt["finding"].get("file")
+    assert jwt["finding"].get("line")
     challenge = await client.reason("challenge finding: jwt security analysis", "")
     assert challenge["finding_valid"] is False
     strict = await client.reason("strict re-analysis: jwt security analysis", "")
     assert strict["confidence"] >= 0.8
+    assert isinstance(strict["finding"], dict)
     session = await client.reason("analyze findings for session management analysis", "")
     assert session["confidence"] >= 0.7
+    assert isinstance(session["finding"], dict)
 
 
 def test_llm_client_timeout_configurable_via_env(monkeypatch):

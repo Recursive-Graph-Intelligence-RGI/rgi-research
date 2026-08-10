@@ -279,6 +279,7 @@ async def maybe_spawn_verification(graph: CognitiveGraph, harness: Harness) -> N
         "objective": f"Verify: {graph.state.objective}",
         "reason": "low_confidence_verification",
         "target_findings": findings,
+        "confidence_threshold": graph.state.confidence_threshold,
     })
     if v_id:
         v_graph = await execute_graph(harness.get_graph(v_id), harness)
@@ -324,6 +325,21 @@ async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
                          new_confidence=corrected_confidence)
 
 
+def _format_challenged_finding(finding):
+    if isinstance(finding, dict):
+        inner = finding.get("finding")
+        if isinstance(inner, str):
+            return inner
+        if isinstance(inner, dict):
+            finding = inner
+        return (
+            f"{finding.get('kind', 'finding')} ({finding.get('severity', '?')}) — "
+            f"{finding.get('detail', '')} @ {finding.get('file', '?')}:{finding.get('line', '?')} "
+            f"[{finding.get('symbol', '?')}]"
+        )
+    return str(finding)
+
+
 async def verify_findings(node: CognitiveNode, target_nodes: list,
                           harness: Harness) -> dict:
     # Challenge any completed reasoning node that is ungrounded or below threshold.
@@ -352,7 +368,8 @@ async def verify_findings(node: CognitiveNode, target_nodes: list,
                              node_id=node.id, reason=decision.reason)
         return {"finding_valid": True, "confidence": 0.0, "detail": "budget_exhausted"}
     challenged_text = "\n".join(
-        f"- {t.metadata['challenged_finding']}" for t in challenged
+        f"- {_format_challenged_finding(t.metadata['challenged_finding'])}"
+        for t in challenged
     )
     result = await harness.llm_client.reason(
         f"Challenge finding: {node.content}",
@@ -402,7 +419,9 @@ def _keep_finding(f: dict) -> bool:
 def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> None:
     findings = [f for f in _collect_findings(child) if _keep_finding(f)]
     if findings:
-        parent.memory_snapshot.setdefault("merged_findings", []).extend(findings)
+        parent.memory_snapshot.setdefault("merged_findings", []).extend(
+            {"from_graph": child.id, **f} for f in findings
+        )
         ledger = parent.memory_snapshot.get("ledger")
         if isinstance(ledger, dict):
             ledger.setdefault("facts", []).extend(

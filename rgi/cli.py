@@ -32,10 +32,12 @@ def build_report(root, harness, knowledge) -> dict:
             if "finding" in node.result:
                 normalized = normalize_finding(node.result["finding"])
                 if normalized is not None:
+                    normalized["confidence"] = node.confidence
                     findings.append({"graph": graph.state.objective, **normalized})
             for raw in node.result.get("findings", []):
                 normalized = normalize_finding(raw)
                 if normalized is not None:
+                    normalized["confidence"] = node.confidence
                     findings.append({"graph": graph.state.objective, **normalized})
     completed = [n for g in graphs for n in g.nodes.values()
                  if n.state.value == "completed"]
