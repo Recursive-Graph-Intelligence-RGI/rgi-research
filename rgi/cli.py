@@ -11,10 +11,12 @@ from pathlib import Path
 
 from rgi.baseline import MOCK_CAVEAT, run_baseline
 from rgi.core.engine import execute_graph
+from rgi.core.findings import normalize_finding
 from rgi.core.harness import Harness, HarnessConfig
 from rgi.core.models import CognitiveGraph, GraphPolicy, GraphState, LoopType
 from rgi.loops import initialize_graph_nodes
 from rgi.perception.code_parser import PerceptionLayer
+from rgi.perception.rlmlocal_perception import RlmlocalPerceptionLayer
 from rgi.reasoning.llm_client import LLMClient, MockLLMClient
 
 
@@ -26,9 +28,10 @@ def build_report(root, harness, knowledge) -> dict:
             findings.append({"graph": graph.state.objective, **f})
         for node in graph.nodes.values():
             if isinstance(node.result, dict) and "finding" in node.result:
-                findings.append({"graph": graph.state.objective,
-                                 "finding": node.result["finding"],
-                                 "confidence": node.confidence})
+                normalized = normalize_finding(node.result["finding"])
+                if normalized is None:
+                    continue
+                findings.append({"graph": graph.state.objective, **normalized})
     completed = [n for g in graphs for n in g.nodes.values()
                  if n.state.value == "completed"]
     aggregate = (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0
@@ -81,7 +84,14 @@ def build_report(root, harness, knowledge) -> dict:
 async def run_analysis(path, objective, output, mock, provider, model, max_llm_calls,
                        max_total_nodes=50, embed: bool = False) -> dict:
     data_dir = Path("data")
-    use_mock = mock or not os.environ.get("RGI_LLM_API_KEY")
+    # Local providers such as ollama do not require an API key; only fall back
+    # to the deterministic mock when no key is set for cloud endpoints.
+    is_local_provider = provider in ("ollama",)
+    use_mock = mock or (not is_local_provider and not os.environ.get("RGI_LLM_API_KEY"))
+    if is_local_provider and not os.environ.get("RGI_LLM_BASE_URL"):
+        os.environ.setdefault("RGI_LLM_BASE_URL", "http://localhost:11434/v1")
+    if is_local_provider and not os.environ.get("RGI_LLM_API_KEY"):
+        os.environ.setdefault("RGI_LLM_API_KEY", "ollama")
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
     config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
                            max_total_nodes=max_total_nodes,
@@ -102,14 +112,23 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     harness = Harness(config)
 
     # Step 1: Perception builds the world model
-    knowledge = await PerceptionLayer().ingest_codebase(path)
+    perception = RlmlocalPerceptionLayer() if os.environ.get("RGI_RLMLocal_PERCEPTION") == "1" else PerceptionLayer()
+    knowledge = await perception.ingest_codebase(path)
     harness.graphs[knowledge.id] = knowledge
     (data_dir / "knowledge_graph.json").write_text(knowledge.model_dump_json(indent=2))
 
     # Step 2: Root planning graph, primed with the activated world model
+    # Size-aware graph state: large real codebases need more iterations and a
+    # slightly lower confidence bar to consolidate before the wall-clock budget.
+    max_iterations = int(os.environ.get("RGI_MAX_ITERATIONS", "10"))
+    confidence_threshold = float(os.environ.get("RGI_CONFIDENCE_THRESHOLD", "0.7"))
     root = CognitiveGraph(
         loop_type=LoopType.PLANNING,
-        state=GraphState(objective=objective),
+        state=GraphState(
+            objective=objective,
+            max_iterations=max_iterations,
+            confidence_threshold=confidence_threshold,
+        ),
         policy=GraphPolicy(),
     )
     initialize_graph_nodes(root, {"objective": objective})
@@ -195,8 +214,15 @@ def main(argv=None) -> int:
     evaluate.add_argument("--target", default=None)
     evaluate.add_argument("--embed", action="store_true",
                           help="Seed activation with embeddings (OpenAI-compatible endpoint)")
+    server = sub.add_parser("server", help="Run RGI as a local HTTP service")
+    server.add_argument("--host", default="127.0.0.1", help="Bind address")
+    server.add_argument("--port", type=int, default=8787, help="Bind port")
     args = parser.parse_args(argv)
 
+    if args.command == "server":
+        from rgi.server import main as server_main
+        asyncio.run(server_main(host=args.host, port=args.port))
+        return 0
     if args.command == "analyze":
         report = asyncio.run(run_analysis(
             args.path, args.objective, args.output,
