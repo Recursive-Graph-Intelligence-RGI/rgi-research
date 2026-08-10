@@ -59,6 +59,19 @@ async def test_raising_child_does_not_lose_sibling_merges():
     async def exploding_execute(tool_name, params):
         if tool_name == "check_jwt_usage":
             raise RuntimeError("tool exploded")
+        if tool_name == "grep_security_patterns":
+            # Give the session child a grounded, high-confidence finding so the
+            # new grounding gate still lets it merge despite the JWT sibling failing.
+            return {
+                "findings": [{
+                    "kind": "session_timeout_missing",
+                    "severity": "high",
+                    "detail": "SessionStore never checks age",
+                    "file": "session.py",
+                    "line": 10,
+                }],
+                "confidence": 0.9,
+            }
         return await original(tool_name, params)
 
     h.tool_registry.execute = exploding_execute
