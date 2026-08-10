@@ -326,7 +326,24 @@ async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
 
 async def verify_findings(node: CognitiveNode, target_nodes: list,
                           harness: Harness) -> dict:
+    # Challenge any completed reasoning node that is ungrounded or below threshold.
     challenged = [t for t in target_nodes if t.metadata.get("challenged_finding")]
+    threshold = node.metadata.get("confidence_threshold", 0.7)
+    challenged_ids = {t.id for t in challenged}
+    auto_challenge = [
+        t for t in target_nodes
+        if t.type == NodeType.REASONING
+        and t.state == NodeState.COMPLETED
+        and t.confidence < threshold
+        and not _is_grounded(t.result)
+        and t.id not in challenged_ids
+    ]
+    for t in auto_challenge:
+        if isinstance(t.result, dict):
+            t.metadata["challenged_finding"] = t.result.get("finding", t.result)
+        else:
+            t.metadata["challenged_finding"] = t.result
+        challenged.append(t)
     if not challenged:
         return {"finding_valid": True, "confidence": 0.5, "detail": "no_targets"}
     decision = harness.gate.check("llm_call", {"calls_so_far": harness.total_llm_calls})
@@ -449,6 +466,15 @@ def _avg_confidence(graph: CognitiveGraph) -> float:
     confs += [float(f.get("confidence", 0.5))
               for f in graph.memory_snapshot.get("merged_findings", [])]
     return sum(confs) / len(confs) if confs else 0.0
+
+
+def _is_grounded(result: dict | None) -> bool:
+    if not isinstance(result, dict):
+        return False
+    finding = result.get("finding", result)
+    if not isinstance(finding, dict):
+        return False
+    return bool(finding.get("file") or finding.get("line") or finding.get("symbol"))
 
 
 def _collect_findings(graph: CognitiveGraph) -> list[dict]:
