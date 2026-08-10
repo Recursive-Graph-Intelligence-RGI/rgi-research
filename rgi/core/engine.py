@@ -378,15 +378,19 @@ def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[di
     ]
 
 
+def _keep_finding(f: dict) -> bool:
+    return bool(f.get("grounded") or f.get("confidence", 0) >= 0.85)
+
+
 def merge_subgraph_results(parent: CognitiveGraph, child: CognitiveGraph) -> None:
-    findings = _collect_findings(child)
+    findings = [f for f in _collect_findings(child) if _keep_finding(f)]
     if findings:
-        parent.memory_snapshot.setdefault("merged_findings", []).extend(
-            {"from_graph": child.id, **f} for f in findings)
+        parent.memory_snapshot.setdefault("merged_findings", []).extend(findings)
         ledger = parent.memory_snapshot.get("ledger")
         if isinstance(ledger, dict):
             ledger.setdefault("facts", []).extend(
-                f for f in findings
+                f"{f['kind']} in {f.get('file', '?')}:{f.get('line', '?')} — {f.get('detail', '')}"
+                for f in findings
                 if f.get("confidence", 0) >= child.state.confidence_threshold)
     suggestions = [
         s for n in child.nodes.values()
