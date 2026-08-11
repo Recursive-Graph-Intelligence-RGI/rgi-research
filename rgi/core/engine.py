@@ -14,6 +14,7 @@ from rgi.core.harness import Harness
 from rgi.core.models import (
     CognitiveEdge, CognitiveGraph, CognitiveNode, LoopType, NodeState, NodeType,
 )
+from rgi.core.spawn_search import decide_next_action, SpawnAction
 
 ACTIVATION_THRESHOLD = 0.5
 MAX_SPAWN_ROUNDS = int(os.environ.get("RGI_MAX_SPAWN_ROUNDS", "2"))  # per-graph; chatty models re-seed suggestions every merge
@@ -22,9 +23,64 @@ MAX_SPAWN_PER_ROUND = int(os.environ.get("RGI_MAX_SPAWN_PER_ROUND", "3"))  # sug
 COVERAGE_SWEEP_MAX = int(os.environ.get("RGI_COVERAGE_SWEEP_MAX", "3"))    # missing[:N] per sweep
 
 
+async def _execute_spawn_action(graph: CognitiveGraph, harness: Harness,
+                                action: SpawnAction) -> bool:
+    """Dispatch a SpawnAction to existing engine machinery. Returns True if progress."""
+    if action.action_type == "stop":
+        return False
+
+    if action.action_type == "execution_sweep":
+        for fpath in action.target_files[:COVERAGE_SWEEP_MAX]:
+            cid = await harness.request_subgraph_spawn(graph.id, {
+                "loop_type": LoopType.EXECUTION,
+                "objective": f"Coverage sweep: security analysis of {Path(fpath).name}",
+                "reason": "coverage_gap",
+                "target_path": fpath,
+            })
+            if cid:
+                child = await execute_graph(harness.get_graph(cid), harness)
+                merge_subgraph_results(graph, child)
+        return True
+
+    if action.action_type == "verify_tool":
+        graph.memory_snapshot.setdefault("spawn_suggestions", []).append({
+            "loop_type": LoopType.VERIFICATION,
+            "objective": action.objective,
+            "reason": "tool_verification",
+            "target_findings": action.metadata.get("target_findings", []),
+            "target_path": harness.config.target_path,
+        })
+        # Mark tool node as queued
+        node_id = action.metadata.get("tool_node")
+        if node_id and node_id in graph.nodes:
+            graph.nodes[node_id].metadata["verification_queued"] = True
+        return True
+
+    if action.action_type == "repl_explore":
+        for n in action.metadata.get("target_nodes", []):
+            n.metadata["force_fire"] = True
+        return True
+
+    if action.action_type == "frontier_arbitrate":
+        # Handled separately by existing needs_frontier_arbitration path.
+        return False
+
+    return False
+
+
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
     spawn_rounds = 0
     frontier_plan = None
+
+    async def _run_child(child):
+        try:
+            return await execute_graph(child, harness)
+        except Exception as exc:  # containment: failed child, not lost run
+            child.state.status = "failed"
+            harness.audit.record("child_execution_error", graph_id=child.id,
+                                 error=str(exc))
+            return child
+
     if (graph.parent_graph_id is None
             and harness.frontier_config.enabled
             and harness.frontier_config.plan_at_start):
@@ -181,23 +237,33 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                         n.metadata["spawn_consumed"] = True
                 harness.audit.record("spawn_inhibited", graph_id=graph.id,
                                      reason="max_spawn_rounds", dropped=len(dropped))
-            else:
+            elif harness.config.spawn_search_enabled:
+                try:
+                    action = await decide_next_action(graph, harness)
+                except Exception as exc:
+                    harness.audit.record("spawn_search_fallback", graph_id=graph.id,
+                                         error=f"{type(exc).__name__}: {exc}")
+                    action = None
+                if action is not None and action.action_type != "stop":
+                    harness.audit.record("spawn_search_decision", graph_id=graph.id,
+                                         action_type=action.action_type,
+                                         objective=action.objective,
+                                         reason=action.reason)
+                    progressed = await _execute_spawn_action(graph, harness, action)
+                    if progressed:
+                        spawn_rounds += 1
+
+            # Heuristic fallback: if spawn search disabled, returned stop/None,
+            # or no progress was made, use the original proposal generator.
+            if (graph.policy.auto_spawn
+                    and should_spawn_subgraphs(graph, harness)
+                    and spawn_rounds < MAX_SPAWN_ROUNDS):
                 proposals = generate_spawn_proposals(graph, harness)
                 child_ids = []
                 for proposal in proposals:
                     child_id = await harness.request_subgraph_spawn(graph.id, proposal)
                     if child_id:
                         child_ids.append(child_id)
-
-                async def _run_child(child):
-                    try:
-                        return await execute_graph(child, harness)
-                    except Exception as exc:  # containment: failed child, not lost run
-                        child.state.status = "failed"
-                        harness.audit.record("child_execution_error", graph_id=child.id,
-                                             error=str(exc))
-                        return child
-
                 children = [harness.get_graph(cid) for cid in child_ids]
                 if children:
                     spawn_rounds += 1
