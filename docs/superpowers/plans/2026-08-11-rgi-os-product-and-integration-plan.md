@@ -291,7 +291,71 @@ stack (or py stack for py files).
 5. **Python decouple/carve/rename** — port the tree-sitter-python equivalents
    (the T0 gap in the matrix) if RGI-OS needs Python refactors standalone.
 
-## 9. Open questions (parked, not blocking)
+## 9. Artifact layer — a first-class principle (added 2026-08-11)
+
+### 9.1 The principle
+
+**Artifacts are materialized, versioned, content-addressed OUTPUTS; logic is the
+pure code that produces them.** Every graph layer, finding, proposal, and run
+report becomes an artifact with provenance — retrievable from memory instead of
+recomputed. This is the Nix/Bazel build-system insight applied to agent memory:
+"give me the import graph for repo X at commit Y" is an O(1) lookup, not a
+recompute.
+
+```
+parse(file@hash) → structure artifact → import-graph artifact → call-graph artifact
+                                      → reference-graph artifact → data-flow artifact
+                                      → findings artifact → run-report artifact
+```
+
+Each layer is a pure producer: consumes artifacts, produces artifacts, keyed by
+content hashes + producer version. Provenance (inputs-hash, producer version,
+run id) makes everything replayable — the receipts story.
+
+### 9.2 Why it's the architecture's spine (not just efficiency)
+
+1. **It IS the typed-memory design.** The working/episodic/semantic/procedural
+   memory research becomes concrete: *semantic = validated findings, episodic =
+   run reports, procedural = successful refactor proposals.* fortmemory-vault is
+   the store; artifacts are what it holds. "Called from memory" = retrieval over
+   artifacts.
+2. **It solves a real current gap.** The deep-dive found rlmlocal rebuilds all
+   graph layers in-memory every build (not persisted), and RGI's `data/*.json`
+   dumps are not queryable. Artifacts unify both: one store, one schema,
+   retrieval instead of recompute.
+3. **It IS the audit/receipts story.** An artifact with provenance is replayable
+   by construction — the frozen `G=(V,E,S,P)` protocol = the artifact schema; the
+   snapshot format (`rgi-graph-snapshot-v1`) = the artifact interchange.
+4. **It fixes the C2 failure mode.** The C2 verdict said "perception stores only
+   labels, not code bodies." Artifacts carry the bodies, content-addressed — a
+   symbol query hits the actual code, not a label.
+
+### 9.3 The invalidation model (adopt, don't invent)
+
+Content-hash + mtime + version keys — rlmlocal's `freshness.ts` + version-anchored
+`ConceptStore` is exactly this machinery. Rule: **content hash changed → rebuild
+that artifact and downstream dependents.** Do not invent a new staleness model;
+adopt theirs, content-addressed.
+
+### 9.4 Scope discipline
+
+- **Artifact-ify the DATA, not the logic.** Parsers, graph builders, refactor
+  gates, scanners stay code. Only their outputs become artifacts.
+- **Don't block the benchmark.** The benchmark is the honest gate; the artifact
+  layer makes its results durable, not the other way around. Benchmark reports
+  themselves become versioned artifacts so the verdict is replayable.
+- **Local artifact cache first** (RGI `data/` + fortmemory later) — prove the
+  content-addressed store + freshness before wiring the memory sidecar.
+
+### 9.5 Phase item (Phase 4 hardening)
+
+- Build a minimal local artifact cache: `store(layer, inputs_hash, producer, data)`
+  + `get(layer, inputs_hash)` + `invalidate(downstream)`, keyed by content hash.
+- Wire the perception layers to produce/consume artifacts instead of recomputing.
+- Then point fortmemory-vault at the same artifact schema (semantic/episodic/
+  procedural classes) so retrieval spans sessions.
+
+## 10. Open questions (parked, not blocking)
 
 - Python runtime bundling strategy (PyInstaller vs uv vs system Python) — spike
   in Phase 4.
@@ -299,7 +363,7 @@ stack (or py stack for py files).
 - Whether the PWA ever hosts the RGI engine (cloud mode) or stays companion.
 - FortSignal policy language / static config vs runtime policy graph.
 
-## 10. Definition of Done for v1 (vertical slice)
+## 11. Definition of Done for v1 (vertical slice)
 
 - [ ] One download → pick folder → graph builds → ask/scan/investigate → verified
       findings → audited report, against a real LLM.
