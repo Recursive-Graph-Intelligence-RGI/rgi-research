@@ -1,4 +1,5 @@
 import json
+import os
 from rgi.cli import main
 from rgi.reasoning.frontier_integration import FrontierConfig
 
@@ -12,6 +13,12 @@ def test_frontier_config_from_env_values():
     assert cfg.enabled
     assert cfg.model == "kimi-k2"
     assert cfg.max_arbitration_calls == 2
+
+
+def test_frontier_enabled_env_parsing_is_whitespace_tolerant(monkeypatch):
+    monkeypatch.setenv("RGI_FRONTIER_ENABLED", " true ")
+    cfg = FrontierConfig(enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").strip().lower() in ("1", "true", "yes"))
+    assert cfg.enabled
 
 
 def test_e2e_mock_run(tmp_path, capsys):
