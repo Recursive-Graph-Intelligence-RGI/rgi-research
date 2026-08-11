@@ -222,7 +222,76 @@ tool's contract. RGI-OS reuses rlmlocal's executor primitives via the bridge and
 adds Python runners + security_scan + recursive verification as RGI's
 contribution.
 
-## 8. Open questions (parked, not blocking)
+## 8. Parser map & interim integration design (analyzed 2026-08-11)
+
+### 8.1 The parser landscape (which technology does what)
+
+| Technology | rlmlocal (TS) | RGI (Python) |
+|---|---|---|
+| tree-sitter | Everything structural — extract/cluster/decouple/fence/method-object. **Python lane = tree-sitter-python, NOT `ast`** | Structure extraction (6 langs), import/call graphs |
+| Python `ast` | none | `code_parser.py` (default) + security_scan plaintext check |
+| regex | commands, data-flow keys, route refs, non-JS rename, SEARCH/REPLACE | data-flow keys, route refs, security checks, fallback |
+| TS compiler (executor) | `resolveTypes`/`computeRefactor` — the ONLY full-semantic parser | none |
+| Louvain | cluster detection | none |
+
+**Key corrections to prior assumptions:**
+- rlmlocal's "Python lane" is **tree-sitter-python**, not Python's `ast`.
+- RGI has **TWO perception paths** (`ast` default vs tree-sitter compat) that
+  produce different graphs — must be unified before integration.
+- The data-flow modules are **semantic twins** (identical op tables/regexes/
+  fan-out); the `${...}` interpolation is identical. Risk is drift, not mismatch.
+- The real mismatch is **route params**: rlmlocal collapses `:id`/`${x}`/`[id]`/
+  `{id}`/`<int:id>` → `*`; RGI only splits at `<`. A `fetch('/users/${id}')` +
+  `@app.get('/users/<int:id>')` pair connects in rlmlocal's scheme, not RGI's.
+
+### 8.2 Refactor operation matrix (what's TS vs Python, T0 vs T1)
+
+| Op | TS | Python | Deterministic (T0) or Generative (T1) |
+|---|---|---|---|
+| File move/rename | ✅ | ✅ | T0 |
+| Move fn → module | ✅ | ✅ | T0 |
+| Cluster move | ✅ | ✅ | T0 |
+| Extract function/carve | ✅ | ❌ (falls to generative coder) | T0 TS / T1 py |
+| Decouple (all variants) | ✅ | ❌ | T0 TS / T1 py |
+| Extract collaborator | ✅ | ✅ | T0 |
+| Method-object | ✅ | ✅ | T0 |
+| Rename symbol | ✅ compiler | ⚠ text word-boundary | T0 |
+| Converge | ✅ | ✅ | T0 |
+
+**RGI can DRIVE without reimplementing:** every gate is command-string driven
+(`move cluster X in <file>`, `decouple X in <file>`, `extract X in <file>`), and
+the engine re-derives structure itself (never trusts caller targets). RGI's graph
+only needs to *select targets* — verification, types, and edits stay in the TS
+stack (or py stack for py files).
+
+### 8.3 The interim integration design (how RGI graph drives rlmlocal gates)
+
+1. **RGI selects targets from its graph** — symbol activation + data-flow +
+   call/import edges point at files/functions worth refactoring (the "why").
+2. **RGI emits the existing command strings** into rlmlocal's scheduler — the
+   same seam the in-repo planner (`filePlan.ts`) uses. Zero rlmlocal engine
+   change; the gates already re-derive structure and verify via shadow.
+3. **TS ground-truth via `resolveExtractTypes.cjs`** — it already speaks
+   tree-sitter coordinates and emits the same hunk shape. RGI shells out to it
+   for TS types/refactors; no reimplementation.
+4. **Data-flow tables stay in sync** — treat the op sets + regexes as ONE shared
+   artifact (generated), not two hand-maintained lists.
+5. **Reference graph adopts rlmlocal's param-collapse** — the strictly more
+   general `*` collapse + Django/`@Get`/`#[get]` registrations.
+
+### 8.4 Honest gaps to close (in priority order)
+
+1. **Unify RGI's two perception paths** (retire `ast` default in favor of
+   tree-sitter compat, or define it as Python-only fallback).
+2. **Uplift RGI's structure extractor** — `const foo = () => {}`, Go types,
+   Rust struct/enum, non-top-level Python/JS, `callSites` (function-level calls).
+3. **Extend RGI language coverage** to rlmlocal's 18 extensions (ruby regex +
+   content-only rows).
+4. **Reference-graph route param collapse** (RGI adopts rlmlocal's scheme).
+5. **Python decouple/carve/rename** — port the tree-sitter-python equivalents
+   (the T0 gap in the matrix) if RGI-OS needs Python refactors standalone.
+
+## 9. Open questions (parked, not blocking)
 
 - Python runtime bundling strategy (PyInstaller vs uv vs system Python) — spike
   in Phase 4.
@@ -230,7 +299,7 @@ contribution.
 - Whether the PWA ever hosts the RGI engine (cloud mode) or stays companion.
 - FortSignal policy language / static config vs runtime policy graph.
 
-## 9. Definition of Done for v1 (vertical slice)
+## 10. Definition of Done for v1 (vertical slice)
 
 - [ ] One download → pick folder → graph builds → ask/scan/investigate → verified
       findings → audited report, against a real LLM.
