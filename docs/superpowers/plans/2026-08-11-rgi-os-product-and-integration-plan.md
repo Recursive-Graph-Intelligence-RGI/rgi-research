@@ -351,9 +351,29 @@ adopt theirs, content-addressed.
 
 - Build a minimal local artifact cache: `store(layer, inputs_hash, producer, data)`
   + `get(layer, inputs_hash)` + `invalidate(downstream)`, keyed by content hash.
+  **DONE 2026-08-11** — `rgi/artifacts.py`, 8 tests.
 - Wire the perception layers to produce/consume artifacts instead of recomputing.
 - Then point fortmemory-vault at the same artifact schema (semantic/episodic/
   procedural classes) so retrieval spans sessions.
+
+### 9.6 Memory strategy — two layers (decided 2026-08-11)
+
+**Layer 1 — NOW (committed docs, zero friction):** the canonical plan + a running
+session log (`docs/internal/2026-08-11-session-log.md`, updated as we go). This is
+the "quit losing context" fix that works today — no server, no API key, survives
+everything, follows rlmlocal's `memory/notes-*.md` pattern.
+
+**Layer 2 — Phase 6 (fortmemory-vault, governed):** fortmemory's writes REQUIRE
+FortSignal challenge/verify by design (`FortSignal.Enforcer`, `FailClosedOnFortSignal`
+default true) — that is the product (cryptographic proof on every write), and
+governance is deliberately last. When FortSignal lands, the artifact schema maps
+to vault notes: semantic = validated findings, episodic = run reports, procedural =
+successful proposals; provenance = receipts; retrieval = `/v1/search`.
+
+**Anti-pattern (avoided):** standing up fortmemory now in an un-governed mode for
+dev notes. It adds a running Go server + API key to every session, teaches the
+wrong pattern (memory without proof), and duplicates what a git-committed log does
+better for a two-repo dev flow.
 
 ## 10. Open questions (parked, not blocking)
 
