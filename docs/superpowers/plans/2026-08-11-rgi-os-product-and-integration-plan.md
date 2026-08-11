@@ -160,7 +160,69 @@ That is a win either way: the product ships, the research is honest.
 6. Don't auto-land anything (T0 deterministic transforms may auto-land later,
    T1/generative never without human).
 
-## 7. Open questions (parked, not blocking)
+## 7. Execution layer & tool alignment (analyzed 2026-08-11)
+
+**rlmlocal's execution layer is real, not a skeleton** (verified against code):
+- Rust backend `src-tauri/src/lib.rs` (2001) + `opencode_host.rs` (1902): 27 Tauri
+  commands — patch pipeline, TS compiler service, git_cochange, GEPA trace DB,
+  OpenCode host.
+- TS bridge `platform.ts` (618): one brain, two runtimes — Tauri `invoke`
+  (production) or `:1421` HTTP bridge (browser dev). Pairing token (release-only),
+  domain-locked CORS.
+- Human gate `execConsole.ts` (2297): verify → approve → `apply_patch` (the ONE
+  atomic write path), one commit per land, task released only after Approve.
+- Iterate loop `RunCodeTaskIterate.ts` (1685): stash, atomic batch verify,
+  RED-clears-stash, caps (6 iters / 2 RED / 3 junk / 5 truncate), never auto-lands.
+
+**Crown jewels to REUSE in RGI-OS (language-agnostic, transport-agnostic):**
+- The verify engine: `make_shadow`/`remove_shadow`/`verify_patch_inner` (git
+  worktree shadow, baseline-diff, failure fingerprints, `tests_ran=None` honesty).
+- The hunk engine (`Edit` search/replace with atomic cross-file validation).
+- The human gate invariant: "all changes land through the one atomic
+  `apply_patch` tail."
+- The transport split pattern (one logic, two transports → RGI-OS adopts the
+  same trick on its Python localhost server).
+
+**REPLACE / harden (don't inherit baggage):**
+- ⚠️ Path traversal in verify/apply — **FIXED 2026-08-11** (`confine_join`
+  rejects absolute + `..` on every edit target; scoped `git add -- <files>`
+  instead of `git add -A`; 2 new Rust tests, 31 pass).
+- Debug builds have no token on `:1421` + CORS any-localhost — RGI-OS must
+  implement real auth (per-request, proper error statuses).
+- Errors return HTTP 200 with `{"error":...}` — clients must parse body.
+- Missing timeouts on `run_ts_script` and `opencode_task_turn`.
+- TS-only fence + TS-only T0 gates — port to Python (ruff/mypy/pytest).
+
+**Tool inventory — rlmlocal vs RGI (alignment):**
+
+| Capability | rlmlocal (TS) | RGI (Python) | Aligned? |
+|---|---|---|---|
+| List dir | `listDir` (browserTools) | `list_dir` | ✅ same shape |
+| Read file | `readFile` (full/truncated/fresh) | `read_file` (line bounds) | ✅ RGI adds line bounds |
+| Grep | `grep` (regex, caps) | `grep` (regex, glob) | ✅ |
+| Find files | `findFiles` (pattern) | `find_files` (glob) | ✅ |
+| Stat | `stat` (mtime+size) | `stat` (size/mtime) | ✅ |
+| Write file | `writeFile` (gated) | *(none — Phase 3 exec)* | ⚠️ RGI missing, planned |
+| Edit file | `editFile` (gated) | *(none — Phase 3 exec)* | ⚠️ RGI missing, planned |
+| Run tests | `runTests` → executor | `run_pytest` | ⚠️ RGI only pytest, rlmlocal multi-runner |
+| Lint/type | `resolve_types` (TS compiler) | `run_pyflakes`/`run_py_compile` | ⚠️ rlmlocal TS, RGI Python |
+| Refactor | `compute_refactor` (TS LS) | *(none)* | ⚠️ RGI missing |
+| Co-change | `git_cochange` (git log) | *(none)* | ⚠️ RGI missing |
+| Security scan | *(none — stub `securityFindings`)* | `security_scan` (deterministic) | ✅ RGI fills rlmlocal's gap |
+| Explore corpus | `explore_corpus` (sandbox REPL) | `explore_corpus` (sandbox REPL) | ✅ both |
+| Symbol callers | `getDependencies`/`callers` (graph) | `callers` (import-graph) | ⚠️ rlmlocal richer |
+| Parse structure | tree-sitter `StructureExtractor` | `parse_python_file` + rlmlocal_compat | ✅ both |
+| MCP tools | `list_local_resources` etc. | MCP server (`/mcp`) | ✅ both directions |
+
+**The alignment rule:** where both have a tool, keep the same wire shape
+(`ToolResult {success, output}` / `{findings, confidence}`) so either engine can
+drive either surface. Where only one has it (security_scan on RGI; refactor/
+co-change on rlmlocal), the other side gains it without changing the existing
+tool's contract. RGI-OS reuses rlmlocal's executor primitives via the bridge and
+adds Python runners + security_scan + recursive verification as RGI's
+contribution.
+
+## 8. Open questions (parked, not blocking)
 
 - Python runtime bundling strategy (PyInstaller vs uv vs system Python) — spike
   in Phase 4.
@@ -168,7 +230,7 @@ That is a win either way: the product ships, the research is honest.
 - Whether the PWA ever hosts the RGI engine (cloud mode) or stays companion.
 - FortSignal policy language / static config vs runtime policy graph.
 
-## 8. Definition of Done for v1 (vertical slice)
+## 9. Definition of Done for v1 (vertical slice)
 
 - [ ] One download → pick folder → graph builds → ask/scan/investigate → verified
       findings → audited report, against a real LLM.
