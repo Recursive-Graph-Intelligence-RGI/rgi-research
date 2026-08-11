@@ -64,6 +64,13 @@ async def main():
             os.environ["RGI_MAX_ITERATIONS"] = str(int(10 + n_files / 20))
             os.environ["RGI_CONFIDENCE_THRESHOLD"] = str(
                 round(max(0.55, 0.7 - n_files / 1000), 3))
+            # hybrid condition = rgi + frontier (plan/arbitrate/synthesize).
+            # The frontier provider is chosen by RGI_FRONTIER_PROVIDER
+            # (ollama-9b for local testing; edge for the CF Workers AI model).
+            if condition == "hybrid":
+                os.environ["RGI_FRONTIER_ENABLED"] = "1"
+            else:
+                os.environ["RGI_FRONTIER_ENABLED"] = "0"
             started = time.monotonic()
             cell = {"target": name, "n_files": n_files, "condition": condition}
             max_seconds = int(os.environ.get("RGI_MAX_SECONDS", "300"))
