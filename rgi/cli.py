@@ -144,13 +144,18 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
         api_key=os.environ.get("RGI_FRONTIER_API_KEY"),
         max_arbitration_calls=int(os.environ.get("RGI_FRONTIER_MAX_ARBITRATION", "2")),
     )
-    config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
-                           max_total_nodes=max_total_nodes,
-                           # Local models blow past the 300s demo limit; RGI_MAX_SECONDS
-                           # raises it for benchmarking without weakening the default.
-                           max_seconds=int(os.environ.get("RGI_MAX_SECONDS", "300")),
-                           llm_client=llm, data_dir=str(data_dir),
-                           frontier_config=frontier_config)
+    config = HarnessConfig(
+        target_path=path, max_llm_calls=max_llm_calls,
+        max_total_nodes=max_total_nodes,
+        # Local models blow past the 300s demo limit; RGI_MAX_SECONDS
+        # raises it for benchmarking without weakening the default.
+        max_seconds=int(os.environ.get("RGI_MAX_SECONDS", "300")),
+        llm_client=llm, data_dir=str(data_dir),
+        frontier_config=frontier_config,
+        spawn_search_enabled=os.environ.get("RGI_SPAWN_SEARCH", "").strip().lower()
+                           in ("1", "true", "yes"),
+        spawn_search_max_time=float(os.environ.get("RGI_SPAWN_SEARCH_MAX_TIME", "1.0")),
+    )
     if embed or os.environ.get("RGI_EMBED_BASE_URL"):
         from rgi.memory.activation import EmbeddingActivationEngine
         from rgi.reasoning.embeddings import OpenAICompatibleEmbeddings

@@ -1,6 +1,7 @@
 import os
 from types import SimpleNamespace
 
+from rgi.core.harness import HarnessConfig
 from rgi.core.models import (
     CognitiveGraph, CognitiveNode, GraphPolicy, GraphState, LoopType,
     NodeState, NodeType,
@@ -107,3 +108,22 @@ def test_generates_repl_explore_action():
     actions = generate_candidate_actions(graph, object())
     repl = [a for a in actions if a.action_type == "repl_explore"]
     assert len(repl) == 1
+
+
+def test_harness_config_defaults():
+    cfg = HarnessConfig(target_path=".", max_llm_calls=10)
+    assert cfg.spawn_search_enabled is False
+    assert cfg.spawn_search_max_time == 1.0
+
+
+def test_harness_config_from_env(monkeypatch):
+    monkeypatch.setenv("RGI_SPAWN_SEARCH", "1")
+    monkeypatch.setenv("RGI_SPAWN_SEARCH_MAX_TIME", "2.5")
+    # Simulate CLI parsing
+    enabled = os.environ.get("RGI_SPAWN_SEARCH", "").strip().lower() in ("1", "true", "yes")
+    max_time = float(os.environ.get("RGI_SPAWN_SEARCH_MAX_TIME", "1.0"))
+    cfg = HarnessConfig(target_path=".", max_llm_calls=10,
+                        spawn_search_enabled=enabled,
+                        spawn_search_max_time=max_time)
+    assert cfg.spawn_search_enabled is True
+    assert cfg.spawn_search_max_time == 2.5

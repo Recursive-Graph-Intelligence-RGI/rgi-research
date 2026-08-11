@@ -29,6 +29,8 @@ class HarnessConfig:
     activation_engine: object = None
     data_dir: str = "data"
     frontier_config: FrontierConfig = field(default_factory=FrontierConfig)
+    spawn_search_enabled: bool = False
+    spawn_search_max_time: float = 1.0
 
 
 class Harness:
