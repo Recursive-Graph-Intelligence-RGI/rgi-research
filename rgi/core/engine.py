@@ -38,7 +38,7 @@ async def _execute_spawn_action(graph: CognitiveGraph, harness: Harness,
                 "target_path": fpath,
             })
             if cid:
-                child = await execute_graph(harness.get_graph(cid), harness)
+                child = await _run_child(harness.get_graph(cid), harness)
                 merge_subgraph_results(graph, child)
         return True
 
@@ -68,18 +68,20 @@ async def _execute_spawn_action(graph: CognitiveGraph, harness: Harness,
     return False
 
 
+async def _run_child(child: CognitiveGraph, harness: Harness) -> CognitiveGraph:
+    """Contain a child graph execution so a failed child does not crash the parent run."""
+    try:
+        return await execute_graph(child, harness)
+    except Exception as exc:  # containment: failed child, not lost run
+        child.state.status = "failed"
+        harness.audit.record("child_execution_error", graph_id=child.id,
+                             error=str(exc))
+        return child
+
+
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
     spawn_rounds = 0
     frontier_plan = None
-
-    async def _run_child(child):
-        try:
-            return await execute_graph(child, harness)
-        except Exception as exc:  # containment: failed child, not lost run
-            child.state.status = "failed"
-            harness.audit.record("child_execution_error", graph_id=child.id,
-                                 error=str(exc))
-            return child
 
     if (graph.parent_graph_id is None
             and harness.frontier_config.enabled
@@ -230,6 +232,7 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         # lift more. Without a round cap the graph spawns until max_iterations
         # and dies "failed" without consolidating (live Run 5 diagnosis).
         if graph.policy.auto_spawn and should_spawn_subgraphs(graph, harness):
+            spawn_search_progressed = False
             if spawn_rounds >= MAX_SPAWN_ROUNDS:
                 dropped = graph.memory_snapshot.pop("spawn_suggestions", [])
                 for n in graph.nodes.values():
@@ -252,12 +255,11 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                     progressed = await _execute_spawn_action(graph, harness, action)
                     if progressed:
                         spawn_rounds += 1
+                        spawn_search_progressed = True
 
-            # Heuristic fallback: if spawn search disabled, returned stop/None,
-            # or no progress was made, use the original proposal generator.
-            if (graph.policy.auto_spawn
-                    and should_spawn_subgraphs(graph, harness)
-                    and spawn_rounds < MAX_SPAWN_ROUNDS):
+            # Heuristic fallback: only when spawn search is disabled, returned
+            # stop/None, or made no progress.
+            if not spawn_search_progressed and spawn_rounds < MAX_SPAWN_ROUNDS:
                 proposals = generate_spawn_proposals(graph, harness)
                 child_ids = []
                 for proposal in proposals:
@@ -267,7 +269,7 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                 children = [harness.get_graph(cid) for cid in child_ids]
                 if children:
                     spawn_rounds += 1
-                    results = await asyncio.gather(*(_run_child(c) for c in children))
+                    results = await asyncio.gather(*(_run_child(c, harness) for c in children))
                     for child in results:
                         merge_subgraph_results(graph, child)
                     progressed = True
