@@ -134,8 +134,10 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
     frontier_config = FrontierConfig(
         enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").lower() in ("1", "true", "yes"),
-        provider=provider,
-        model=model,
+        provider=os.environ.get("RGI_FRONTIER_PROVIDER", provider),
+        model=os.environ.get("RGI_FRONTIER_MODEL", model),
+        base_url=os.environ.get("RGI_FRONTIER_BASE_URL"),
+        api_key=os.environ.get("RGI_FRONTIER_API_KEY"),
         max_arbitration_calls=int(os.environ.get("RGI_FRONTIER_MAX_ARBITRATION", "2")),
     )
     config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,

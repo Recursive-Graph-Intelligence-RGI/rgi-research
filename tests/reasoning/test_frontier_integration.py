@@ -33,7 +33,22 @@ def test_arbitration_result_valid_decision():
 def test_frontier_config_defaults():
     cfg = FrontierConfig()
     assert not cfg.enabled
+    assert cfg.base_url is None
+    assert cfg.api_key is None
     assert cfg.max_arbitration_calls == 2
+
+
+def test_frontier_config_local_endpoint():
+    cfg = FrontierConfig(
+        enabled=True,
+        provider="ollama",
+        model="qwen2.5:72b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+    )
+    assert cfg.provider == "ollama"
+    assert cfg.base_url == "http://localhost:11434/v1"
+    assert cfg.api_key == "ollama"
 
 
 @pytest.mark.asyncio

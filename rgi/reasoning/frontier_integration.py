@@ -40,6 +40,8 @@ class FrontierConfig:
     enabled: bool = False
     provider: str = "kimi"
     model: str | None = None
+    base_url: str | None = None
+    api_key: str | None = None
     plan_at_start: bool = True
     arbitrate_on_deadlock: bool = True
     synthesize_at_end: bool = True
@@ -49,7 +51,11 @@ class FrontierConfig:
 class FrontierIntegration:
     def __init__(self, config: FrontierConfig, llm_client: Any = None):
         self.config = config
-        self.llm_client = llm_client or LLMClient(model=config.model)
+        self.llm_client = llm_client or LLMClient(
+            model=config.model,
+            base_url=config.base_url,
+            api_key=config.api_key,
+        )
 
     async def plan_root(self, objective: str, world_model: dict[str, Any]) -> PlanResult | None:
         if not self.config.enabled or not self.config.plan_at_start:
