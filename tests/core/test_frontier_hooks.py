@@ -1,7 +1,9 @@
 import pytest
 from rgi.core.harness import Harness, HarnessConfig
 from rgi.core.models import CognitiveGraph, GraphPolicy, GraphState, LoopType
-from rgi.reasoning.frontier_integration import FrontierConfig, FrontierIntegration, PlanResult
+from rgi.reasoning.frontier_integration import (
+    ArbitrationResult, FrontierConfig, FrontierIntegration, PlanResult,
+)
 from rgi.loops import initialize_graph_nodes
 
 
@@ -58,3 +60,36 @@ async def test_engine_seeds_frontier_plan_subgraphs():
     result = await execute_graph(root, harness)
     assert result.state.status in ("completed", "failed")
     assert len(harness.frontier.plan_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_arbitration_triggers_on_low_confidence_stall():
+    from rgi.core.engine import execute_graph, needs_frontier_arbitration
+
+    cfg = HarnessConfig(
+        target_path="sample_project",
+        max_llm_calls=100,
+        frontier_config=FrontierConfig(enabled=True),
+    )
+    harness = Harness(cfg)
+    arb_calls = []
+
+    class _ArbFrontier:
+        async def plan_root(self, objective, world_model):
+            return PlanResult(strategy="test", initial_subgraph_objectives=[], focus_areas=[])
+
+        async def arbitrate(self, state):
+            arb_calls.append(state)
+            return ArbitrationResult(decision="respawn", reasoning="low confidence", spawn_objectives=["Retry"])
+
+    harness.frontier = _ArbFrontier()
+    root = CognitiveGraph(
+        loop_type=LoopType.PLANNING,
+        state=GraphState(objective="x", max_iterations=1, confidence_threshold=0.99),
+        policy=GraphPolicy(),
+    )
+    initialize_graph_nodes(root, {"objective": "x"})
+    harness.graphs[root.id] = root
+    assert needs_frontier_arbitration(root, harness)
+    await execute_graph(root, harness)
+    assert len(arb_calls) == 1

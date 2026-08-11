@@ -58,3 +58,17 @@ async def test_plan_root_uses_frontier_llm():
     assert result.strategy == "focus on auth"
     assert result.initial_subgraph_objectives == ["JWT analysis"]
     assert len(fake.calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_arbitrate_returns_structured_result():
+    fake = _FakeLLM({
+        "decision": "respawn",
+        "reasoning": "confidence stalled",
+        "spawn_objectives": ["Re-analyze JWT"],
+    })
+    cfg = FrontierConfig(enabled=True)
+    frontier = FrontierIntegration(cfg, llm_client=fake)
+    result = await frontier.arbitrate({"findings": [], "contradictions": []})
+    assert result.decision == "respawn"
+    assert result.spawn_objectives == ["Re-analyze JWT"]

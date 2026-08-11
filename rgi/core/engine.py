@@ -206,6 +206,36 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         # spawn suggestions in memory_snapshot, so the completion decision
         # must re-check should_spawn_subgraphs AFTER it runs.
         if all_subgraphs_completed(graph, harness):
+            if needs_frontier_arbitration(graph, harness):
+                state_pkg = {
+                    "objective": graph.state.objective,
+                    "iteration": graph.state.iteration,
+                    "max_iterations": graph.state.max_iterations,
+                    "avg_confidence": _avg_confidence(graph),
+                    "findings": _collect_findings(graph),
+                    "contradictions": _detect_contradictions(_collect_findings(graph)),
+                }
+                try:
+                    arb = await harness.frontier.arbitrate(state_pkg)
+                except Exception as exc:
+                    harness.audit.record("frontier_fallback", graph_id=graph.id,
+                                         phase="arbitrate", error=str(exc))
+                    arb = None
+                graph.memory_snapshot["frontier_arbitration_count"] = graph.memory_snapshot.get("frontier_arbitration_count", 0) + 1
+                if arb:
+                    harness.audit.record("frontier_arbitration", graph_id=graph.id,
+                                         decision=arb.decision, reasoning=arb.reasoning)
+                    if arb.decision == "respawn":
+                        for obj in arb.spawn_objectives:
+                            if isinstance(obj, str) and obj.strip():
+                                graph.memory_snapshot.setdefault("spawn_suggestions", []).append({
+                                    "loop_type": LoopType.EXECUTION,
+                                    "objective": obj,
+                                    "reason": "frontier_arbitration",
+                                    "target_path": harness.config.target_path,
+                                })
+                    elif arb.decision == "drop":
+                        graph.memory_snapshot["dropped_findings"] = set(arb.findings_to_drop)
             if not should_spawn_subgraphs(graph, harness):
                 await maybe_spawn_verification(graph, harness)
             if should_spawn_subgraphs(graph, harness) and graph.policy.auto_spawn:
@@ -608,6 +638,35 @@ def _collect_findings(graph: CognitiveGraph) -> list[dict]:
                 normalized.update({"confidence": n.confidence, "node": n.id})
                 out.append(normalized)
     return out
+
+
+def _detect_contradictions(findings: list[dict]) -> list[dict]:
+    """Find groups of findings at the same location."""
+    by_loc: dict[tuple, list[dict]] = {}
+    for f in findings:
+        loc = (f.get("file"), f.get("line"), f.get("symbol"))
+        by_loc.setdefault(loc, []).append(f)
+    return [{"location": loc, "findings": group}
+            for loc, group in by_loc.items() if len(group) > 1]
+
+
+def needs_frontier_arbitration(graph: CognitiveGraph, harness: Harness) -> bool:
+    if not harness.frontier_config.enabled or not harness.frontier_config.arbitrate_on_deadlock:
+        return False
+    arbitration_count = graph.memory_snapshot.get("frontier_arbitration_count", 0)
+    if arbitration_count >= harness.frontier_config.max_arbitration_calls:
+        return False
+    avg = _avg_confidence(graph)
+    if graph.state.iteration >= graph.state.max_iterations - 1 and avg < graph.state.confidence_threshold:
+        return True
+    contradictions = _detect_contradictions(_collect_findings(graph))
+    if contradictions:
+        return True
+    rejected = sum(1 for e in harness.audit.events
+                   if e.get("event") == "spawn_rejected" and e.get("graph_id") == graph.id)
+    if rejected >= 3:
+        return True
+    return False
 
 
 def _dependency_order(nodes: list, edges: list) -> list:

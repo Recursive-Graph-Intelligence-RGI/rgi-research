@@ -78,7 +78,22 @@ class FrontierIntegration:
     async def arbitrate(self, state: dict[str, Any]) -> ArbitrationResult | None:
         if not self.config.enabled or not self.config.arbitrate_on_deadlock:
             return None
-        return ArbitrationResult(decision="noop", reasoning="frontier not yet implemented")
+        prompt = (
+            "You are an arbitration judge in a recursive code-intelligence engine. "
+            "Local subgraphs have produced the following state. Decide how to proceed. "
+            "Return strictly JSON matching this schema:\n"
+            '{"decision": "respawn|merge|drop|escalate|noop", "reasoning": str, '
+            '"spawn_objectives": [str], "findings_to_drop": [str], "escalate_to_user": bool}\n\n'
+            f"State: {json.dumps(state, default=str)[:6000]}"
+        )
+        try:
+            raw = await self.llm_client.reason("Arbitrate local deadlock", prompt)
+            return ArbitrationResult.model_validate(raw)
+        except Exception as exc:
+            return ArbitrationResult(
+                decision="noop",
+                reasoning=f"frontier arbitration failed: {exc}",
+            )
 
     async def synthesize(self, graph_state: dict[str, Any], findings: list[dict]) -> SynthesisResult | None:
         if not self.config.enabled or not self.config.synthesize_at_end:
