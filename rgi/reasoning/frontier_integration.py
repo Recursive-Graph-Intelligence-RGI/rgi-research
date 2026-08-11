@@ -22,11 +22,10 @@ class PlanResult(BaseModel):
 
 
 class ArbitrationResult(BaseModel):
-    decision: str = Field(..., pattern="^(respawn|merge|drop|escalate|noop)$")
+    decision: str = Field(..., pattern="^(respawn|drop|noop)$")
     reasoning: str
     spawn_objectives: list[str] = []
     findings_to_drop: list[str] = []
-    escalate_to_user: bool = False
 
 
 class SynthesisResult(BaseModel):

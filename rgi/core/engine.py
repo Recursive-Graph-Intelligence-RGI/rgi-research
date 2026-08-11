@@ -646,7 +646,8 @@ def _collect_findings(graph: CognitiveGraph) -> list[dict]:
 
 
 def _detect_contradictions(findings: list[dict]) -> list[dict]:
-    """Find groups of findings at the same location."""
+    """Find locations cited by more than one finding as a heuristic for
+    potential contradiction. The frontier arbitrates whether they agree."""
     by_loc: dict[tuple, list[dict]] = {}
     for f in findings:
         loc = (f.get("file"), f.get("line"), f.get("symbol"))

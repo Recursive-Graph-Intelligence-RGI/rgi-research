@@ -27,7 +27,7 @@ def test_plan_result_defaults():
 def test_arbitration_result_valid_decision():
     r = ArbitrationResult(decision="respawn", reasoning="local confidence stalled")
     assert r.spawn_objectives == []
-    assert not r.escalate_to_user
+    assert r.findings_to_drop == []
 
 
 def test_frontier_config_defaults():
