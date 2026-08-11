@@ -87,6 +87,10 @@ card (earlier commits), then `72ab4fd` — executor path-traversal fix (confine_
 
 1. **Phase 3 benchmark re-run** — the honest verdict on whether RGI's engine beats
    rlmlocal's brain (one run, complete substrate). The plan's disciplined next move.
+   **LAUNCHED 15:29** — qwen2.5:7b, all 4 real targets (R1 vulpy, R2 dvpwa,
+   R4 pygoat, R3 aiohttp) × (rgi, fixed, single), substrate ON
+   (`RGI_RLMLocal_PERCEPTION=1`), fresh output
+   `data/real_c2_qwen2_5_7b_substrate-v1.json`. Resumable; ~1.5–3h.
 2. **Wire perception layers into the artifact cache** (prove O(1) lookup on a real
    graph build) — plan §9.5. **DONE** — `ingest_codebase_cached`, 2 tests.
 3. **Commit the deep-dive raw reports** to `docs/internal/` (currently only
@@ -101,6 +105,14 @@ card (earlier commits), then `72ab4fd` — executor path-traversal fix (confine_
    reflect → objective score → human activate) is the procedural-memory half of
    the typed-memory design. Real + shipped, JS/TS-lane-specific; RGI-OS inherits
    the loop, RGI adds the artifact layer underneath it. Plan §8.5.
+8. **Scorer normalization bug found + fixed** — the deterministic scanner emits
+   underscore kinds (`sql_injection`) but the eval scorer matched ground-truth
+   terms (`sql injection`, `sqli`) as exact substrings → scanner-seeded runs scored
+   0 recall despite finding real vulns. Fixed `_normalize()` (underscore/hyphen →
+   space on both sides). Verified: 5 sql_injection findings now score recall 0.139 /
+   precision 1.0 on vulpy (was 0.0). Commit `add71e3`. This bug had been silently
+   deflating every scanner-seeded run's recall — the benchmark re-run is the first
+   to measure the substrate honestly.
 
 ### Memory (the "let you loose" enabler, as of end of session)
 
