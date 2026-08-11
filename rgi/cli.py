@@ -177,8 +177,11 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     # Step 2: Root planning graph, primed with the activated world model
     # Size-aware graph state: large real codebases need more iterations and a
     # slightly lower confidence bar to consolidate before the wall-clock budget.
-    max_iterations = int(os.environ.get("RGI_MAX_ITERATIONS", "10"))
-    confidence_threshold = float(os.environ.get("RGI_CONFIDENCE_THRESHOLD", "0.7"))
+    target = Path(path)
+    file_count = len(list(target.rglob("*.py"))) if target.is_dir() else 1
+    is_large = file_count > 20
+    max_iterations = int(os.environ.get("RGI_MAX_ITERATIONS", "12" if is_large else "8"))
+    confidence_threshold = float(os.environ.get("RGI_CONFIDENCE_THRESHOLD", "0.65" if is_large else "0.75"))
     root = CognitiveGraph(
         loop_type=LoopType.PLANNING,
         state=GraphState(
