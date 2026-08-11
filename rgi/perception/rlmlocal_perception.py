@@ -15,7 +15,9 @@ from rgi.core.models import (
     LoopType,
     NodeType,
 )
+from rgi.perception.rlmlocal_compat.call_graph import build_call_graph
 from rgi.perception.rlmlocal_compat.import_graph import build_import_graph
+from rgi.perception.rlmlocal_compat.reference_graph import build_reference_graph
 from rgi.perception.rlmlocal_compat.structure_extractor import extract_structure
 
 
@@ -33,6 +35,8 @@ class RlmlocalPerceptionLayer:
         py_files = sorted(p for p in root.rglob("*.py") if p.is_file())
         structs = {p: extract_structure(p) for p in py_files}
         import_graph = build_import_graph(root, structs)
+        call_graph = build_call_graph(root, structs, import_graph.symbol_defs)
+        reference_graph = build_reference_graph(root, structs)
 
         file_to_node: dict[Path, str] = {}
         for py_file in py_files:
@@ -110,6 +114,36 @@ class RlmlocalPerceptionLayer:
                         edge_type="imports",
                         weight=0.9,
                         metadata={"symbol": edge.get("symbol"), "line": edge.get("line")},
+                    )
+                )
+
+        # Call edges: file A calls a symbol defined unambiguously in file B.
+        for edge in call_graph.edges:
+            src = Path(edge["source_file"])
+            tgt = Path(edge["target_file"])
+            if src in file_to_node and tgt in file_to_node:
+                graph.edges.append(
+                    CognitiveEdge(
+                        source=file_to_node[src],
+                        target=file_to_node[tgt],
+                        edge_type="flow",
+                        weight=0.85,
+                        metadata={"symbol": edge.get("symbol"), "line": edge.get("line")},
+                    )
+                )
+
+        # Reference edges: a client call literal resolves to a registered route.
+        for edge in reference_graph.edges:
+            src = Path(edge["source_file"])
+            tgt = Path(edge["target_file"])
+            if src in file_to_node and tgt in file_to_node:
+                graph.edges.append(
+                    CognitiveEdge(
+                        source=file_to_node[src],
+                        target=file_to_node[tgt],
+                        edge_type="dependency",
+                        weight=0.8,
+                        metadata={"url": edge.get("url"), "line": edge.get("line")},
                     )
                 )
 
