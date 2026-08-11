@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RGI Sidecar Example</title>
+    <style>
+      body { font-family: system-ui, sans-serif; max-width: 720px; margin: 2rem auto; padding: 0 1rem; }
+      button { padding: 0.5rem 1rem; margin-right: 0.5rem; cursor: pointer; }
+      input[type="text"] { width: 100%; padding: 0.5rem; box-sizing: border-box; }
+      #status { margin: 1rem 0; font-family: monospace; white-space: pre-wrap; }
+      #result { margin-top: 1rem; padding: 1rem; background: #f4f4f4; border-radius: 4px; overflow-x: auto; }
+      .row { margin-bottom: 1rem; }
+    </style>
+  </head>
+  <body>
+    <h1>RGI Tauri Sidecar Example</h1>
+    <div class="row">
+      <button id="pick-folder">Pick folder</button>
+      <span id="folder-path">No folder selected</span>
+    </div>
+    <div class="row">
+      <label>Objective</label>
+      <input id="objective" type="text" value="find security issues" />
+    </div>
+    <div class="row">
+      <button id="start-rgi">Start RGI engine</button>
+      <button id="stop-rgi">Stop RGI engine</button>
+      <button id="run-analysis" disabled>Run analysis</button>
+    </div>
+    <div id="status">Engine not started.</div>
+    <pre id="result"></pre>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

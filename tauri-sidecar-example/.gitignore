@@ -1,0 +1,6 @@
+# Rust build output (1.4GB of artifacts — never commit)
+/src-tauri/target/
+
+# Node deps
+/node_modules/
+/dist/
