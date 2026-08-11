@@ -16,6 +16,7 @@ from rgi.core.models import (
     NodeType,
 )
 from rgi.perception.rlmlocal_compat.call_graph import build_call_graph
+from rgi.perception.rlmlocal_compat.data_flow_graph import build_data_flow_graph
 from rgi.perception.rlmlocal_compat.import_graph import build_import_graph, source_files
 from rgi.perception.rlmlocal_compat.language_packs import lang_family
 from rgi.perception.rlmlocal_compat.reference_graph import build_reference_graph
@@ -38,6 +39,7 @@ class RlmlocalPerceptionLayer:
         import_graph = build_import_graph(root, structs)
         call_graph = build_call_graph(root, structs, import_graph.symbol_defs)
         reference_graph = build_reference_graph(root, structs)
+        data_flow_graph = build_data_flow_graph(root, structs)
 
         file_to_node: dict[Path, str] = {}
         for src_file in src_files:
@@ -149,6 +151,22 @@ class RlmlocalPerceptionLayer:
                         edge_type="dependency",
                         weight=0.8,
                         metadata={"url": edge.get("url"), "line": edge.get("line")},
+                    )
+                )
+
+        # Data-flow edges: producer writes a shared resource key, consumer reads
+        # it — runtime coupling invisible to import/call graphs (feedback edge).
+        for producer, consumer, key in data_flow_graph.edges:
+            src = Path(producer)
+            tgt = Path(consumer)
+            if src in file_to_node and tgt in file_to_node:
+                graph.edges.append(
+                    CognitiveEdge(
+                        source=file_to_node[src],
+                        target=file_to_node[tgt],
+                        edge_type="feedback",
+                        weight=0.75,
+                        metadata={"key": key},
                     )
                 )
 
