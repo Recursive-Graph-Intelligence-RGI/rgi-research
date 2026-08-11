@@ -13,6 +13,7 @@ from typing import Any
 
 from aiohttp import web
 
+from rgi.api.chat_stream import chat_stream
 from rgi.api.project_store import STORE, ProjectStore
 from rgi.api.security_stream import security_scan_stream
 from rgi.api.snapshot import import_snapshot
@@ -214,13 +215,17 @@ class RGIServer:
         )
 
     async def chat(self, request: web.Request) -> web.StreamResponse:
-        # Placeholder until Task 1.3 imports the real implementation.
         from rgi.api.sse import event_stream
 
-        async def _fallback():
-            yield {"kind": "error", "message": "chat not yet implemented"}
-
-        return await event_stream(request, _fallback())
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            return web.json_response({"error": "invalid_json"}, status=400)
+        project_id = request.match_info["project_id"]
+        return await event_stream(
+            request,
+            chat_stream(project_id, body.get("message", ""), body.get("options")),
+        )
 
     async def _stop(self) -> None:
         await asyncio.sleep(0.5)
