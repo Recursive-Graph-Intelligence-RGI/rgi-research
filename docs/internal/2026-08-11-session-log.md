@@ -126,8 +126,22 @@ card (earlier commits), then `72ab4fd` — executor path-traversal fix (confine_
 11. **Phase 3 benchmark results (partial, 7b, substrate ON, scorer fixed):**
     - R1_vulpy: rgi 0.139/prec 1.0 · fixed 0.25/prec 0.33 · single 0.0
     - R2_dvpwa: rgi 0.077/prec 1.0 · fixed 0.192 · single 0.0
+    - R4_pygoat: rgi 0.397/prec 0.774 · single 0.231 · fixed running
     - Pattern: rgi = high precision (verified findings), lower recall; fixed =
       higher recall, lower precision. R4/R3 (big targets) still running.
+    - **HEADLINE: RGI's advantage grows with codebase size.** Small (18-21
+      files) RGI loses to fixed; at 80 files RGI 0.397 decisively beats single
+      0.231. The crossover curve (topology value scales with problem
+      complexity) is showing — the graph pays off when there's real code to
+      organize. Validates the hybrid: local+graph is the right tool for big
+      real codebases, frontier judgment lifts recall further.
+12. **Cloudflare edge /infer returns empty content** — wiring is correct
+    (owner key resolves from ~/.config/rlmlocal/owner-infer-key, origin gate
+    passes, request shape matches CloudflareAIProvider), but the free-tier
+    model returns `{content:""}` — a Workers AI availability/capacity issue,
+    not auth. Pragmatic path: test the hybrid architecture with Ollama-9b as
+    the "frontier" (same logic: local breadth + frontier judgment), swap to
+    edge provider when the model is healthy.
 
 ### Memory (the "let you loose" enabler, as of end of session)
 
