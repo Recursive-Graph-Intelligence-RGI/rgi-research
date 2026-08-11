@@ -35,6 +35,8 @@
 | Unified desktop OS design | `docs/superpowers/specs/2026-08-10-rgi-unified-desktop-os-design.md` | v0.3 product split, auth, packaging vision. |
 | OS governance integration | `docs/superpowers/specs/2026-08-10-rgi-os-governance-integration-strategy.md` | FortSignal governance split between Rust shell and Python engine. |
 | Hybrid local/frontier design | `docs/superpowers/specs/2026-08-11-rgi-hybrid-local-frontier-integration-design.md` | Local models for constrained work, frontier for synthesis. |
+| rlmlocal refactor/decompose skills | Agent 128 explore output | How skills trigger, T0/T1 lanes, verify/approve/land flow, decomposition heuristics. |
+| rlmlocal OpenCode integration | Agent 129 explore output | Shadow worktree lifecycle, proposal/approval gate, replaceable transport seam. |
 | v0.3 perception port plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-engine-perception-port.md` | Porting rlmlocal graph semantics into RGI Python. |
 | v0.3 Tauri desktop plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-tauri-desktop-integration.md` | Sidecar scaffolding and Tauri commands. |
 | v0.3 unified desktop OS plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-unified-desktop-os-implementation-plan.md` | End-to-end desktop build tasks. |
@@ -56,6 +58,9 @@
 | 8 | **Deterministic scanner is the floor.** | `security_scan` seeds findings so weak models don't miss real vulns. | `rgi-cognitive-runtime-strategy.md` |
 | 9 | **Mandatory verification gate.** | Every non-scanner finding must be tool-verified before reporting. | `rgi-cognitive-runtime-strategy.md` §Phase 1 |
 | 10 | **Graph is truth.** | All reasoning grounded in rlmlocal's live code graph or an imported snapshot. | `rgi-cognitive-runtime-strategy.md` §Design principles |
+| 11 | **RGI recursive loops map onto existing rlmlocal lanes.** | `RecursiveScheduler`, `RunCodeTaskIterate`, `Refactorer`, and `verifyPatch` already implement spawn/verify/correct; RGI should orchestrate above them. | Agent 128 report §4 |
+| 12 | **OpenCode transport is replaceable.** | The execution seam is `ExecPort` + `opencodeTaskStart/Turn/Collect/Cleanup`; an RGI provider can plug into the same proposal bus. | Agent 129 report §4 |
+| 13 | **Human approval gate is preserved.** | Even autonomous RGI sub-agents land changes through the existing TO VERIFY gate; T0 deterministic transforms may be auto-land later. | Agent 128 report §5 |
 
 ---
 
@@ -322,10 +327,17 @@ git commit -m "feat(agent): export rlmlocal graph snapshot for RGI"
 - Blocked by: Phase 1
 
 ### Phase 3 — Execution loop
-- Reference: `docs/superpowers/specs/2026-08-12-rgi-rlmlocal-adapter-design.md` §Phase 3
+- Reference: `docs/superpowers/specs/2026-08-12-rgi-rlmlocal-adapter-design.md` §Phase 3; Agent 128/129 reports
 - Goal: RGI emits patch proposals that flow through rlmlocal's `verify_patch` → approve → `apply_patch`.
 - Owner: `rgi` + `rlmlocal-site`
 - Blocked by: Phase 2
+- Concrete tasks:
+  1. **Add write/patch tools to RGI**: `write_file`, `edit_file`, `apply_patch`, `verify_patch` in `rgi/tools/`.
+  2. **Implement shadow-verify semantics in RGI**: copy changed files to a temp tree, run tests/lint if available, report `broke`/`baseline_failed`/`after_failed`.
+  3. **Add `execRequest` proxy endpoint**: `POST /v1/projects/{id}/exec` forwards to rlmlocal's Tauri/Worker `ExecPort` and returns `execResult`.
+  4. **RGI patch proposal schema**: emit `{path, previous, content, trustTier, verification}` matching `ExecProposal` so rlmlocal's TO VERIFY gate can render it.
+  5. **Autonomous recursion with human land**: RGI spawns verifier/corrector sub-agents but every land still goes through `execConsole.ts` approval.
+  6. **Re-use rlmlocal infrastructure**: shadow worktrees, `verify_patch_inner`, `apply_patch_inner`, proposal bus, ledger/trust DB.
 
 ### Phase 4 — MCP client provider in RGI
 - Reference: `docs/internal/rgi-rlmlocal-mcp-wrapper-analysis.md` §3.2
@@ -356,6 +368,11 @@ git commit -m "feat(agent): export rlmlocal graph snapshot for RGI"
 | rlmlocal-site chat UI abort/race bugs | Diagnosed | rlmlocal-site | Fix independently or adapter avoids worker path; see analysis doc §6. |
 | RGI local-model precision on real OSS | High recall, low precision | RGI | Phase 0 mandatory verification + Phase 2 substrate. |
 | Graph snapshot performance for large repos | Unknown | Both | Export incremental/debounced; test with real projects. |
+| RGI has no write/patch/verify tools yet | Confirmed | RGI | Phase 3 task 1; blocks execution loop. |
+| rlmlocal approval gate is human-only | Confirmed | rlmlocal-site | Preserve for T1 generative edits; auto-land only T0 deterministic transforms. |
+| No generic "spawn child agent" primitive in rlmlocal | Confirmed | rlmlocal-site | RGI provides the orchestrator; rlmlocal provides the task runner. |
+| Single `AGENT_TASK` mutex blocks parallel RGI sub-spawns | Confirmed | rlmlocal-site | Queue sub-tasks or lift mutex in future; v0.3 serializes. |
+| Convergence is textual (Jaccard), not semantic | Confirmed | RGI | Replace with embedding/structural similarity in Phase 0 follow-up. |
 
 ---
 
@@ -373,8 +390,8 @@ git commit -m "feat(agent): export rlmlocal graph snapshot for RGI"
 
 ## 9. Next Actions (Today / Tomorrow)
 
-1. **Review this roadmap** and confirm phase ordering.
-2. **Create the `feature/rgi-rlmlocal-adapter` branch** in `rgi`.
-3. **Start Task 2** (Phase 0 hardening) — it is unblocked and gives immediate benchmark payoff.
-4. **Schedule a spike** on Python runtime bundling before Phase 5.
-5. **Keep rlmlocal-site untouched** until Task 3 (adapter skeleton) is ready.
+1. **Finish Agent 127 verification** — read its output, run the TypeScript test, and confirm `RGIEngineClient` implements `IEngine`.
+2. **Run the Phase 1 smoke test** — start `python -m rgi server`, enable the adapter flag in rlmlocal-site, confirm streamed `securityFindings` render.
+3. **Commit the RGI adapter server** (already tested: 19 passed, full suite 229 passed) if not already committed.
+4. **Commit the roadmap updates** and tag the two new explore reports in `docs/internal/`.
+5. **Decide with the user** whether to proceed to Phase 2 (graph port) or Phase 3 (execution tools) next.
