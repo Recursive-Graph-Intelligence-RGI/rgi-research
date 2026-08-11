@@ -113,6 +113,21 @@ card (earlier commits), then `72ab4fd` — executor path-traversal fix (confine_
    precision 1.0 on vulpy (was 0.0). Commit `add71e3`. This bug had been silently
    deflating every scanner-seeded run's recall — the benchmark re-run is the first
    to measure the substrate honestly.
+9. **Model C bridge built + proven** — `exportSnapshot.ts` (rlmlocal) serializes
+   the already-built graph (import/call/reference/dataFlow edges + lineage) to
+   `rgi-graph-snapshot-v1`; RGI's `import_snapshot` accepts it (round-trip
+   verified). This is the "easier solution": RGI consumes rlmlocal's rich graph
+   instead of re-porting. Commits `f4d954e`, `6917319`.
+10. **Cloudflare edge provider wired into RGI frontier** — `LLMClient
+    provider='edge'` hits `{workerUrl}/infer` with `X-RLM-Owner-Key` + ownerKey
+    body + CF envelope, mirroring rlmlocal's CloudflareAIProvider. The hybrid:
+    local models + graph do breadth, edge frontier (30B @cf/qwen) does
+    plan/arbitrate/synthesize (1-3 small calls). Commit `9e9c5c0`.
+11. **Phase 3 benchmark results (partial, 7b, substrate ON, scorer fixed):**
+    - R1_vulpy: rgi 0.139/prec 1.0 · fixed 0.25/prec 0.33 · single 0.0
+    - R2_dvpwa: rgi 0.077/prec 1.0 · fixed 0.192 · single 0.0
+    - Pattern: rgi = high precision (verified findings), lower recall; fixed =
+      higher recall, lower precision. R4/R3 (big targets) still running.
 
 ### Memory (the "let you loose" enabler, as of end of session)
 
