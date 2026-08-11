@@ -40,8 +40,39 @@ def format_finding_for_prompt(finding: dict) -> str:
     return str(finding)
 
 
-def normalize_finding(raw: dict) -> dict | None:
-    """Return a canonical finding dict or None if it is noise."""
+def normalize_finding(raw: dict | str) -> dict | None:
+    """Return a canonical finding dict or None if it is noise.
+
+    Models occasionally emit a finding as a plain string. We best-effort
+    parse common shapes and otherwise store it as an ungrounded note.
+    """
+    if isinstance(raw, str):
+        import re
+        m = re.match(
+            r"^(?P<kind>\w+)\s+at\s+(?P<file>[^:]+):(?P<line>\d+)\s*[-:]\s*(?P<detail>.+)$",
+            raw.strip(),
+        )
+        if m:
+            return {
+                "kind": m.group("kind"),
+                "severity": "medium",
+                "detail": m.group("detail").strip(),
+                "file": m.group("file"),
+                "line": int(m.group("line")),
+                "symbol": "",
+                "confidence": 0.5,
+                "grounded": True,
+            }
+        return {
+            "kind": "note",
+            "severity": "info",
+            "detail": raw,
+            "file": None,
+            "line": None,
+            "symbol": "",
+            "confidence": 0.3,
+            "grounded": False,
+        }
     if is_noise(raw):
         return None
     kind = raw.get("kind")

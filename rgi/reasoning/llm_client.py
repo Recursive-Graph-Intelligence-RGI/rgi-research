@@ -12,6 +12,7 @@ SYSTEM_PROMPT = (
     '{"finding": {"kind": str, "severity": str, "detail": str, "file": str, '
     '"line": int, "symbol": str}, "confidence": float (0.0-1.0), "reasoning": str, '
     '"recommended_action": str, "suggested_subgraphs": [str]}. '
+    'Do not emit the finding as a plain string; it must always be the structured object above. '
     'When asked to challenge a finding, also include "finding_valid": bool. '
     'If you need to inspect the corpus programmatically before concluding, '
     'instead return {"repl_code": str} — Python over FILES (a {filename: '
