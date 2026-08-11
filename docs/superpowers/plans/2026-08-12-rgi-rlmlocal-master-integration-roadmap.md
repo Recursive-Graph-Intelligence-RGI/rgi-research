@@ -35,8 +35,8 @@
 | Unified desktop OS design | `docs/superpowers/specs/2026-08-10-rgi-unified-desktop-os-design.md` | v0.3 product split, auth, packaging vision. |
 | OS governance integration | `docs/superpowers/specs/2026-08-10-rgi-os-governance-integration-strategy.md` | FortSignal governance split between Rust shell and Python engine. |
 | Hybrid local/frontier design | `docs/superpowers/specs/2026-08-11-rgi-hybrid-local-frontier-integration-design.md` | Local models for constrained work, frontier for synthesis. |
-| rlmlocal refactor/decompose skills | Agent 128 explore output | How skills trigger, T0/T1 lanes, verify/approve/land flow, decomposition heuristics. |
-| rlmlocal OpenCode integration | Agent 129 explore output | Shadow worktree lifecycle, proposal/approval gate, replaceable transport seam. |
+| rlmlocal refactor/decompose skills | `docs/internal/rgi-rlmlocal-refactor-decompose-explore.md` | How skills trigger, T0/T1 lanes, verify/approve/land flow, decomposition heuristics. |
+| rlmlocal OpenCode integration | `docs/internal/rgi-rlmlocal-opencode-integration-explore.md` | Shadow worktree lifecycle, proposal/approval gate, replaceable transport seam. |
 | v0.3 perception port plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-engine-perception-port.md` | Porting rlmlocal graph semantics into RGI Python. |
 | v0.3 Tauri desktop plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-tauri-desktop-integration.md` | Sidecar scaffolding and Tauri commands. |
 | v0.3 unified desktop OS plan | `docs/superpowers/plans/2026-08-10-rgi-v0.3-unified-desktop-os-implementation-plan.md` | End-to-end desktop build tasks. |
