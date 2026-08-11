@@ -3,7 +3,7 @@
 enforces hard limits, approves/rejects every spawn, logs every decision."""
 import asyncio
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 from rgi.core.audit import AuditLog
@@ -13,6 +13,7 @@ from rgi.core.models import CognitiveGraph, CognitiveNode, GraphPolicy, GraphSta
 from rgi.loops import initialize_graph_nodes
 from rgi.loops.learning import LearningEngine
 from rgi.memory.activation import ActivationEngine
+from rgi.reasoning.frontier_integration import FrontierConfig, FrontierIntegration
 from rgi.reasoning.llm_client import LLMClient
 from rgi.tools.registry import ToolRegistry
 
@@ -27,6 +28,7 @@ class HarnessConfig:
     llm_client: object = None
     activation_engine: object = None
     data_dir: str = "data"
+    frontier_config: FrontierConfig = field(default_factory=FrontierConfig)
 
 
 class Harness:
@@ -48,6 +50,8 @@ class Harness:
         self.learning_engine = LearningEngine(f"{config.data_dir}/pathways.json")
         self.audit = AuditLog(f"{config.data_dir}/audit.jsonl")
         self.gate = LocalGate(config.target_path, config.max_llm_calls)
+        self.frontier_config = config.frontier_config
+        self.frontier = FrontierIntegration(self.frontier_config)
         self.lock = asyncio.Lock()
 
     def _count_llm_call(self):
