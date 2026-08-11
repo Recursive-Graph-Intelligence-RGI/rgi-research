@@ -86,7 +86,24 @@ class Harness:
                 self.audit.record("spawn_rejected", graph_id=parent_id, reason="unknown_parent")
                 return None
 
+            # Normalize loop_type: tool verifiers may register strings, engine uses enums
+            raw_loop = proposal.get("loop_type", LoopType.EXECUTION)
+            if isinstance(raw_loop, str):
+                try:
+                    loop_type = LoopType(raw_loop)
+                except ValueError:
+                    loop_type = LoopType.EXECUTION
+            else:
+                loop_type = raw_loop
+            proposal["loop_type"] = loop_type
+
             depth = self.depth_of(parent) + 1
+            spawn_decision = self.gate.check("spawn", {"depth": depth, "proposal": proposal})
+            if not spawn_decision.allowed:
+                self.audit.record("spawn_rejected", graph_id=parent_id,
+                                  reason=spawn_decision.reason, attempted_depth=depth)
+                return None
+
             if depth >= self.max_depth:
                 self.audit.record("spawn_rejected", graph_id=parent_id,
                                   reason="depth_limit", attempted_depth=depth)
@@ -98,7 +115,7 @@ class Harness:
                 return None
 
             new_graph = CognitiveGraph(
-                loop_type=proposal["loop_type"],
+                loop_type=loop_type,
                 state=GraphState(objective=proposal["objective"]),
                 policy=GraphPolicy(
                     max_depth=self.max_depth - depth,
@@ -111,7 +128,7 @@ class Harness:
             self.graphs[new_graph.id] = new_graph
             parent.subgraph_ids.append(new_graph.id)
             self.audit.record("spawn_approved", graph_id=new_graph.id,
-                              parent=parent_id, loop_type=proposal["loop_type"].value,
+                              parent=parent_id, loop_type=loop_type.value,
                               depth=depth, reason=new_graph.spawn_reason)
             return new_graph.id
 
@@ -120,8 +137,20 @@ class Harness:
         if node.type == NodeType.REASONING:
             decision = self.gate.check("llm_call", {"calls_so_far": self.total_llm_calls})
         elif node.type == NodeType.TOOL:
-            path = node.metadata.get("params", {}).get("path", self.config.target_path)
-            decision = self.gate.check("tool_execute", {"path": path})
+            tool_name = node.metadata.get("tool", "")
+            params = node.metadata.get("params", {})
+            tool = self.tool_registry.get_tool(tool_name)
+            decision = self.gate.check(
+                "tool_execute",
+                {
+                    "tool": tool_name,
+                    "path": params.get("path", self.config.target_path),
+                    "root": params.get("root"),
+                    "permissions": list(getattr(tool, "permissions", set())),
+                    "domain": getattr(tool, "domain", "local"),
+                    **params,
+                },
+            )
         else:
             return True
         if not decision.allowed:
