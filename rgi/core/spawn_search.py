@@ -81,7 +81,49 @@ def generate_candidate_actions(graph: CognitiveGraph, harness: object) -> list[S
             estimated_cost=3,
             metadata={"loop_type": "execution", "target_path": ""},
         ))
-    # Tool verification and REPL exploration actions added in Task 3.
+
+    # Tool verifications
+    for n in graph.nodes.values():
+        if (n.type != NodeType.TOOL
+                or n.state != NodeState.COMPLETED
+                or n.metadata.get("verification_queued")):
+            continue
+        tool = harness.tool_registry.get_tool(n.metadata.get("tool", ""))
+        if not tool or not getattr(tool, "verifier", None):
+            continue
+        result = n.result if isinstance(n.result, dict) else {}
+        findings = result.get("findings", [])
+        if not findings:
+            continue
+        actions.append(SpawnAction(
+            action_type="verify_tool",
+            objective=f"Verify findings from {n.metadata.get('tool', 'tool')}",
+            target_files=[f.get("file", "") for f in findings if f.get("file")],
+            reason="tool_verification",
+            estimated_cost=max(len(findings), 1),
+            metadata={"target_findings": findings, "tool_node": n.id},
+        ))
+
+    # REPL exploration for ungrounded low-confidence reasoning
+    threshold = getattr(graph.state, "confidence_threshold", 0.7)
+    weak_reasoning = [
+        n for n in graph.nodes.values()
+        if n.type == NodeType.REASONING
+        and n.state == NodeState.COMPLETED
+        and n.confidence < threshold
+        and isinstance(n.result, dict)
+        and n.result.get("finding")
+    ]
+    if weak_reasoning:
+        actions.append(SpawnAction(
+            action_type="repl_explore",
+            objective="Explore weak reasoning findings with REPL",
+            target_files=[],
+            reason="low_confidence_ungrounded",
+            estimated_cost=2,
+            metadata={"target_nodes": weak_reasoning},
+        ))
+
     return actions
 
 

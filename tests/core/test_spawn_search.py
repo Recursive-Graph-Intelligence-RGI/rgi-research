@@ -68,3 +68,42 @@ async def test_decide_next_action_prefers_sweep_over_stop():
     action = await decide_next_action(graph, object())
     assert action is not None
     assert action.action_type == "execution_sweep"
+
+
+def test_generates_verify_tool_action():
+    graph = _make_graph()
+    tool_node = CognitiveNode(
+        type=NodeType.TOOL,
+        content="scan",
+        parent_graph_id=graph.id,
+        state=NodeState.COMPLETED,
+        result={"findings": [{"kind": "sql_injection", "file": "db.py", "line": 5}]},
+        metadata={"tool": "security_scan", "verification_queued": False},
+    )
+    graph.nodes[tool_node.id] = tool_node
+
+    harness = SimpleNamespace(
+        tool_registry=SimpleNamespace(
+            get_tool=lambda name: SimpleNamespace(verifier={"objective_template": "Verify {kind}"})
+        )
+    )
+    actions = generate_candidate_actions(graph, harness)
+    verify = [a for a in actions if a.action_type == "verify_tool"]
+    assert len(verify) == 1
+    assert verify[0].metadata["target_findings"][0]["kind"] == "sql_injection"
+
+
+def test_generates_repl_explore_action():
+    graph = _make_graph()
+    reason_node = CognitiveNode(
+        type=NodeType.REASONING,
+        content="maybe bad",
+        parent_graph_id=graph.id,
+        state=NodeState.COMPLETED,
+        confidence=0.4,
+        result={"finding": {"kind": "suspicious", "detail": "?"}},
+    )
+    graph.nodes[reason_node.id] = reason_node
+    actions = generate_candidate_actions(graph, object())
+    repl = [a for a in actions if a.action_type == "repl_explore"]
+    assert len(repl) == 1
