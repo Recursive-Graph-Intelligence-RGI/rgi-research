@@ -51,7 +51,7 @@ class Harness:
         self.audit = AuditLog(f"{config.data_dir}/audit.jsonl")
         self.gate = LocalGate(config.target_path, config.max_llm_calls)
         self.frontier_config = config.frontier_config
-        self.frontier = FrontierIntegration(self.frontier_config)
+        self.frontier = FrontierIntegration(self.frontier_config, llm_client=self.llm_client)
         self.lock = asyncio.Lock()
 
     def _count_llm_call(self):

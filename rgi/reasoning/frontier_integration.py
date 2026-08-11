@@ -65,15 +65,8 @@ class FrontierIntegration:
             f"World model keys: {list(world_model.keys())}\n"
             f"World model summary: {json.dumps(world_model, default=str)[:4000]}"
         )
-        try:
-            raw = await self.llm_client.reason("Plan root investigation strategy", prompt)
-            return PlanResult.model_validate(raw)
-        except Exception as exc:
-            return PlanResult(
-                strategy=f"frontier plan failed: {exc}",
-                initial_subgraph_objectives=[],
-                focus_areas=[],
-            )
+        raw = await self.llm_client.reason("Plan root investigation strategy", prompt)
+        return PlanResult.model_validate(raw)
 
     async def arbitrate(self, state: dict[str, Any]) -> ArbitrationResult | None:
         if not self.config.enabled or not self.config.arbitrate_on_deadlock:
@@ -86,14 +79,8 @@ class FrontierIntegration:
             '"spawn_objectives": [str], "findings_to_drop": [str], "escalate_to_user": bool}\n\n'
             f"State: {json.dumps(state, default=str)[:6000]}"
         )
-        try:
-            raw = await self.llm_client.reason("Arbitrate local deadlock", prompt)
-            return ArbitrationResult.model_validate(raw)
-        except Exception as exc:
-            return ArbitrationResult(
-                decision="noop",
-                reasoning=f"frontier arbitration failed: {exc}",
-            )
+        raw = await self.llm_client.reason("Arbitrate local deadlock", prompt)
+        return ArbitrationResult.model_validate(raw)
 
     async def synthesize(self, graph_state: dict[str, Any], findings: list[dict]) -> SynthesisResult | None:
         if not self.config.enabled or not self.config.synthesize_at_end:
@@ -108,8 +95,5 @@ class FrontierIntegration:
             f"Graph state: {json.dumps(graph_state, default=str)[:2000]}\n\n"
             f"Findings: {json.dumps(findings, default=str)[:6000]}"
         )
-        try:
-            raw = await self.llm_client.reason("Synthesize final report", prompt)
-            return SynthesisResult.model_validate(raw)
-        except Exception:
-            return None
+        raw = await self.llm_client.reason("Synthesize final report", prompt)
+        return SynthesisResult.model_validate(raw)

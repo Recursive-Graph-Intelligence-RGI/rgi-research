@@ -135,9 +135,9 @@ async def test_build_report_uses_frontier_synthesis():
 
 
 @pytest.mark.asyncio
-async def test_frontier_parse_failure_falls_back():
+async def test_frontier_parse_failure_raises():
     bad_llm = MockLLMClient(script={"synthesize": [{"invalid": "shape"}]})
     cfg = FrontierConfig(enabled=True, provider="kimi")
     frontier = FrontierIntegration(cfg, llm_client=bad_llm)
-    result = await frontier.synthesize({}, [])
-    assert result is None
+    with pytest.raises(Exception):
+        await frontier.synthesize({}, [])

@@ -60,15 +60,17 @@ async def build_report(root, harness, knowledge) -> dict:
                 "objective": root.state.objective,
                 "status": root.state.status,
                 "aggregate_confidence": synth.confidence,
-                "findings": [normalize_finding(f) for f in synth.findings],
+                "findings": [f for f in (normalize_finding(f) for f in synth.findings) if f],
                 "summary": synth.summary,
                 "recommendations": synth.recommendations,
                 "llm_calls": harness.total_llm_calls,
             }
 
+    dropped = root.memory_snapshot.get("dropped_findings", set())
     compiled = compile_findings(scanner_findings, node_findings,
                                 require_grounded=True,
-                                target_path=harness.config.target_path)
+                                target_path=harness.config.target_path,
+                                dropped=dropped)
     completed = [n for g in graphs for n in g.nodes.values()
                  if n.state.value == "completed"]
     aggregate = (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0
