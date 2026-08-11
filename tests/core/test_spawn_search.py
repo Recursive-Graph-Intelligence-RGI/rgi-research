@@ -1,14 +1,16 @@
 import os
 from types import SimpleNamespace
 
+import pytest
+
 from rgi.core.harness import HarnessConfig
 from rgi.core.models import (
     CognitiveGraph, CognitiveNode, GraphPolicy, GraphState, LoopType,
     NodeState, NodeType,
 )
 from rgi.core.spawn_search import (
-    SpawnAction, SpawnNode, decide_next_action, estimate_value,
-    generate_candidate_actions,
+    SpawnAction, SpawnNode, SpawnSearchTimeoutError, decide_next_action,
+    estimate_value, generate_candidate_actions,
 )
 
 
@@ -127,3 +129,62 @@ def test_harness_config_from_env(monkeypatch):
                         spawn_search_max_time=max_time)
     assert cfg.spawn_search_enabled is True
     assert cfg.spawn_search_max_time == 2.5
+
+
+def _make_deadlocked_graph():
+    graph = _make_graph()
+    graph.memory_snapshot["world_model"] = {"files": []}
+    graph.state.iteration = 9
+    graph.state.max_iterations = 10
+    graph.state.confidence_threshold = 0.7
+    for _ in range(2):
+        n = CognitiveNode(
+            type=NodeType.REASONING,
+            content="finding",
+            parent_graph_id=graph.id,
+            state=NodeState.COMPLETED,
+            confidence=0.2,
+            result={"finding": {"file": "x.py", "line": 1, "kind": "bug"}},
+        )
+        graph.nodes[n.id] = n
+    return graph
+
+
+def test_generates_frontier_arbitrate_on_deadlock():
+    graph = _make_deadlocked_graph()
+    harness = SimpleNamespace(
+        audit=SimpleNamespace(events=[
+            {"event": "spawn_rejected", "graph_id": graph.id},
+            {"event": "spawn_rejected", "graph_id": graph.id},
+            {"event": "spawn_rejected", "graph_id": graph.id},
+        ])
+    )
+    actions = generate_candidate_actions(graph, harness)
+    arb = [a for a in actions if a.action_type == "frontier_arbitrate"]
+    assert len(arb) == 1
+    assert "deadlock" in arb[0].reason
+    assert set(arb[0].metadata["deadlock_signals"]) == {
+        "max_iterations_low_confidence",
+        "contradictions",
+        "repeated_spawn_rejections",
+    }
+
+
+async def test_decide_next_action_prefers_frontier_arbitrate_under_deadlock():
+    graph = _make_deadlocked_graph()
+    harness = SimpleNamespace(
+        audit=SimpleNamespace(events=[
+            {"event": "spawn_rejected", "graph_id": graph.id},
+            {"event": "spawn_rejected", "graph_id": graph.id},
+            {"event": "spawn_rejected", "graph_id": graph.id},
+        ])
+    )
+    action = await decide_next_action(graph, harness)
+    assert action is not None
+    assert action.action_type == "frontier_arbitrate"
+
+
+async def test_decide_next_action_respects_max_time():
+    graph = _make_graph()
+    with pytest.raises(SpawnSearchTimeoutError):
+        await decide_next_action(graph, object(), max_time=0.0)
