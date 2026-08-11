@@ -24,6 +24,25 @@ COVERAGE_SWEEP_MAX = int(os.environ.get("RGI_COVERAGE_SWEEP_MAX", "3"))    # mis
 
 async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGraph:
     spawn_rounds = 0
+    frontier_plan = None
+    if (graph.parent_graph_id is None
+            and harness.frontier_config.enabled
+            and harness.frontier_config.plan_at_start):
+        world_model = graph.memory_snapshot.get("world_model", {})
+        frontier_plan = await harness.frontier.plan_root(graph.state.objective, world_model)
+        if frontier_plan:
+            harness.audit.record("frontier_plan", graph_id=graph.id,
+                                 strategy=frontier_plan.strategy,
+                                 objectives=len(frontier_plan.initial_subgraph_objectives))
+            suggestions = graph.memory_snapshot.setdefault("spawn_suggestions", [])
+            for obj in frontier_plan.initial_subgraph_objectives:
+                if isinstance(obj, str) and obj.strip():
+                    suggestions.append({
+                        "loop_type": LoopType.EXECUTION,
+                        "objective": obj,
+                        "reason": "frontier_plan",
+                        "target_path": harness.config.target_path,
+                    })
     while graph.state.status == "running" and graph.state.iteration < graph.state.max_iterations:
         if harness.time_exceeded():
             graph.state.status = "failed"
@@ -60,7 +79,9 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
 
             try:
                 if node.type == NodeType.REASONING:
-                    context = harness.context_builder.build(node, graph)
+                    context = harness.context_builder.build(
+                        node, graph,
+                        tools=harness.tool_registry.list_tools_for_prompt())
                     result = await harness.llm_client.reason(node.content, context)
                     repl_code = result.get("repl_code")
                     if (isinstance(repl_code, str) and repl_code.strip()
@@ -147,7 +168,7 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         # Chatty models suggest subgraphs on every response; merged children
         # lift more. Without a round cap the graph spawns until max_iterations
         # and dies "failed" without consolidating (live Run 5 diagnosis).
-        if graph.policy.auto_spawn and should_spawn_subgraphs(graph):
+        if graph.policy.auto_spawn and should_spawn_subgraphs(graph, harness):
             if spawn_rounds >= MAX_SPAWN_ROUNDS:
                 dropped = graph.memory_snapshot.pop("spawn_suggestions", [])
                 for n in graph.nodes.values():
@@ -185,9 +206,9 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
         # spawn suggestions in memory_snapshot, so the completion decision
         # must re-check should_spawn_subgraphs AFTER it runs.
         if all_subgraphs_completed(graph, harness):
-            if not should_spawn_subgraphs(graph):
+            if not should_spawn_subgraphs(graph, harness):
                 await maybe_spawn_verification(graph, harness)
-            if should_spawn_subgraphs(graph) and graph.policy.auto_spawn:
+            if should_spawn_subgraphs(graph, harness) and graph.policy.auto_spawn:
                 pass  # pending suggestions: next iteration's phase 3 handles them
             elif _pending_work(graph):
                 pass  # executable nodes still queued (e.g. a REPL re-fire
@@ -325,6 +346,27 @@ async def trigger_correction(graph: CognitiveGraph, node: CognitiveNode,
                          new_confidence=corrected_confidence)
 
 
+async def _read_source_for_finding(harness: Harness, finding: dict) -> str:
+    """Read the cited file/line for a finding to ground verification."""
+    path = finding.get("file")
+    line = finding.get("line")
+    if not path:
+        return ""
+    try:
+        from pathlib import Path
+        p = Path(path)
+        if not p.exists():
+            return ""
+        lines = p.read_text(errors="replace").splitlines()
+        if line is None or line < 1 or line > len(lines):
+            return "\n".join(lines[:20])
+        start = max(0, line - 3)
+        end = min(len(lines), line + 2)
+        return "\n".join(f"{i + 1}: {lines[i]}" for i in range(start, end))
+    except Exception as exc:
+        return f"[could not read source: {exc}]"
+
+
 async def verify_findings(node: CognitiveNode, target_nodes: list,
                           harness: Harness) -> dict:
     # Challenge any completed reasoning node that is ungrounded or below threshold.
@@ -352,20 +394,41 @@ async def verify_findings(node: CognitiveNode, target_nodes: list,
         harness.audit.record("governance_denied", graph_id=node.parent_graph_id,
                              node_id=node.id, reason=decision.reason)
         return {"finding_valid": True, "confidence": 0.0, "detail": "budget_exhausted"}
-    challenged_text = "\n".join(
-        f"- {format_finding_for_prompt(t.metadata['challenged_finding'])}"
-        for t in challenged
+
+    # Build grounded evidence by reading the source for each finding.
+    items = []
+    for t in challenged:
+        finding = t.metadata["challenged_finding"]
+        source = await _read_source_for_finding(harness, finding)
+        items.append({"finding": format_finding_for_prompt(finding), "source": source})
+
+    challenged_text = "\n\n".join(
+        f"FINDING: {it['finding']}\nSOURCE:\n{it['source']}" for it in items
     )
     result = await harness.llm_client.reason(
         f"Challenge finding: {node.content}",
-        f"FINDINGS UNDER CHALLENGE:\n{challenged_text}",
+        f"Determine whether each finding is valid based on the actual source code. "
+        f"Return finding_valid: bool and reasoning.\n\n{challenged_text}",
     )
     result.setdefault("finding_valid", True)
     return result
 
 
-def should_spawn_subgraphs(graph: CognitiveGraph) -> bool:
+def _tool_has_pending_verification(n: CognitiveNode, harness: Harness) -> bool:
+    if n.type != NodeType.TOOL or n.state != NodeState.COMPLETED:
+        return False
+    if n.metadata.get("verification_queued"):
+        return False
+    tool = harness.tool_registry.get_tool(n.metadata.get("tool", ""))
+    return bool(tool and tool.verifier)
+
+
+def should_spawn_subgraphs(graph: CognitiveGraph, harness: Harness | None = None) -> bool:
     if graph.memory_snapshot.get("spawn_suggestions"):
+        return True
+    if harness is not None and any(
+        _tool_has_pending_verification(n, harness) for n in graph.nodes.values()
+    ):
         return True
     return any(
         n.type == NodeType.REASONING
@@ -378,23 +441,71 @@ def should_spawn_subgraphs(graph: CognitiveGraph) -> bool:
     )
 
 
+def _queue_tool_verifications(graph: CognitiveGraph, harness: Harness) -> None:
+    """Auto-spawn verification subgraphs for findings from tools that declare a verifier."""
+    for n in graph.nodes.values():
+        if (n.type != NodeType.TOOL or n.state != NodeState.COMPLETED
+                or n.metadata.get("verification_queued")):
+            continue
+        tool = harness.tool_registry.get_tool(n.metadata.get("tool", ""))
+        if not tool or not tool.verifier:
+            continue
+        verifier = tool.verifier
+        result = n.result if isinstance(n.result, dict) else {}
+        findings = result.get("findings", [])
+        if not isinstance(findings, list):
+            continue
+        for finding in findings:
+            if not isinstance(finding, dict):
+                continue
+            template = verifier.get("objective_template",
+                                    "Verify {kind} finding at {file}:{line}")
+            try:
+                objective = template.format(**finding)
+            except Exception:
+                objective = (
+                    f"Verify {finding.get('kind', 'finding')} at "
+                    f"{finding.get('file', '?')}:{finding.get('line', '?')}"
+                )
+            graph.memory_snapshot.setdefault("spawn_suggestions", []).append({
+                "loop_type": verifier.get("loop_type", LoopType.VERIFICATION),
+                "objective": objective,
+                "reason": "tool_verification",
+                "target_findings": [finding],
+                "target_path": harness.config.target_path,
+            })
+        n.metadata["verification_queued"] = True
+
+
 def generate_spawn_proposals(graph: CognitiveGraph, harness: Harness) -> list[dict]:
-    suggestions = list(graph.memory_snapshot.pop("spawn_suggestions", []))
+    _queue_tool_verifications(graph, harness)
+    raw_suggestions = list(graph.memory_snapshot.pop("spawn_suggestions", []))
+    proposals = []
+    for s in raw_suggestions[:MAX_SPAWN_PER_ROUND]:
+        if isinstance(s, dict):
+            proposals.append(s)
+        elif isinstance(s, str) and s.strip():
+            proposals.append({
+                "loop_type": LoopType.EXECUTION,
+                "objective": s,
+                "reason": "decomposition",
+                "target_path": harness.config.target_path,
+            })
     for n in graph.nodes.values():
         if (n.type == NodeType.REASONING and n.state == NodeState.COMPLETED
                 and n.confidence >= graph.state.confidence_threshold
                 and isinstance(n.result, dict) and n.result.get("suggested_subgraphs")
                 and not n.metadata.get("spawn_consumed")):
-            suggestions.extend(n.result["suggested_subgraphs"])
+            for sg in n.result["suggested_subgraphs"][:MAX_SPAWN_PER_ROUND]:
+                if isinstance(sg, str) and sg.strip():
+                    proposals.append({
+                        "loop_type": LoopType.EXECUTION,
+                        "objective": sg,
+                        "reason": "decomposition",
+                        "target_path": harness.config.target_path,
+                    })
             n.metadata["spawn_consumed"] = True
-    return [
-        {"loop_type": LoopType.EXECUTION, "objective": s,
-         "reason": "decomposition", "target_path": harness.config.target_path}
-        for s in suggestions[:MAX_SPAWN_PER_ROUND]
-        # weak models emit malformed suggestions (dicts, nulls) — a dict
-        # objective crashed GraphState validation in the 1.5b ladder run
-        if isinstance(s, str) and s.strip()
-    ]
+    return proposals[:MAX_SPAWN_PER_ROUND]
 
 
 def _keep_finding(f: dict) -> bool:

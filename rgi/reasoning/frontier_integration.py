@@ -5,10 +5,13 @@ high-leverage inflection points: initial planning, deadlock arbitration,
 and final synthesis. All calls are optional and fall back to local logic
 on failure or when disabled.
 """
+import json
 from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel, Field
+
+from rgi.reasoning.llm_client import LLMClient
 
 
 class PlanResult(BaseModel):
@@ -45,17 +48,32 @@ class FrontierConfig:
 
 
 class FrontierIntegration:
-    def __init__(self, config: FrontierConfig):
+    def __init__(self, config: FrontierConfig, llm_client: Any = None):
         self.config = config
+        self.llm_client = llm_client or LLMClient(model=config.model)
 
     async def plan_root(self, objective: str, world_model: dict[str, Any]) -> PlanResult | None:
         if not self.config.enabled or not self.config.plan_at_start:
             return None
-        return PlanResult(
-            strategy="local-first recursive audit",
-            initial_subgraph_objectives=[],
-            focus_areas=[],
+        prompt = (
+            "You are the strategic planner for a recursive code-intelligence engine. "
+            "Given the objective and a condensed world model, produce a concise plan. "
+            "Return strictly JSON matching this schema:\n"
+            '{"strategy": str, "initial_subgraph_objectives": [str], '
+            '"focus_areas": [str], "expected_findings": [str]}\n\n'
+            f"Objective: {objective}\n\n"
+            f"World model keys: {list(world_model.keys())}\n"
+            f"World model summary: {json.dumps(world_model, default=str)[:4000]}"
         )
+        try:
+            raw = await self.llm_client.reason("Plan root investigation strategy", prompt)
+            return PlanResult.model_validate(raw)
+        except Exception as exc:
+            return PlanResult(
+                strategy=f"frontier plan failed: {exc}",
+                initial_subgraph_objectives=[],
+                focus_areas=[],
+            )
 
     async def arbitrate(self, state: dict[str, Any]) -> ArbitrationResult | None:
         if not self.config.enabled or not self.config.arbitrate_on_deadlock:

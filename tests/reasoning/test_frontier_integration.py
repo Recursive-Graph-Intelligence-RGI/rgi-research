@@ -5,6 +5,16 @@ from rgi.reasoning.frontier_integration import (
 )
 
 
+class _FakeLLM:
+    def __init__(self, response):
+        self.response = response
+        self.calls = []
+
+    async def reason(self, task: str, context: str) -> dict:
+        self.calls.append((task, context))
+        return self.response
+
+
 def test_plan_result_defaults():
     r = PlanResult(
         strategy="breadth-first security audit",
@@ -32,3 +42,19 @@ async def test_frontier_integration_disabled_returns_none():
     frontier = FrontierIntegration(cfg)
     plan = await frontier.plan_root("objective", {})
     assert plan is None
+
+
+@pytest.mark.asyncio
+async def test_plan_root_uses_frontier_llm():
+    fake = _FakeLLM({
+        "strategy": "focus on auth",
+        "initial_subgraph_objectives": ["JWT analysis"],
+        "focus_areas": ["auth.py"],
+        "expected_findings": ["weak secret"],
+    })
+    cfg = FrontierConfig(enabled=True, provider="kimi", model="kimi-k2")
+    frontier = FrontierIntegration(cfg, llm_client=fake)
+    result = await frontier.plan_root("Analyze auth security", {"auth.py": "JWT code"})
+    assert result.strategy == "focus on auth"
+    assert result.initial_subgraph_objectives == ["JWT analysis"]
+    assert len(fake.calls) == 1
