@@ -3,6 +3,7 @@ from rgi.core.harness import Harness, HarnessConfig
 from rgi.core.models import CognitiveGraph, GraphPolicy, GraphState, LoopType
 from rgi.reasoning.frontier_integration import (
     ArbitrationResult, FrontierConfig, FrontierIntegration, PlanResult,
+    SynthesisResult,
 )
 from rgi.loops import initialize_graph_nodes
 
@@ -93,3 +94,40 @@ async def test_arbitration_triggers_on_low_confidence_stall():
     assert needs_frontier_arbitration(root, harness)
     await execute_graph(root, harness)
     assert len(arb_calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_build_report_uses_frontier_synthesis():
+    from rgi.cli import build_report
+
+    cfg = HarnessConfig(
+        target_path="sample_project",
+        frontier_config=FrontierConfig(enabled=True),
+    )
+    harness = Harness(cfg)
+
+    class _SynthFrontier:
+        async def plan_root(self, *a, **kw):
+            return None
+
+        async def arbitrate(self, *a, **kw):
+            return None
+
+        async def synthesize(self, graph_state, findings):
+            return SynthesisResult(
+                summary="synth summary",
+                findings=[{"kind": "test", "file": "x.py", "confidence": 0.9}],
+                confidence=0.9,
+            )
+
+    harness.frontier = _SynthFrontier()
+    harness.frontier.config = FrontierConfig(enabled=True)
+    root = CognitiveGraph(
+        loop_type=LoopType.PLANNING,
+        state=GraphState(objective="test"),
+        policy=GraphPolicy(),
+    )
+    harness.graphs[root.id] = root
+    report = await build_report(root, harness, root)
+    assert report["summary"] == "synth summary"
+    assert report["aggregate_confidence"] == 0.9

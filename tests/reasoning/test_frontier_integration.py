@@ -72,3 +72,18 @@ async def test_arbitrate_returns_structured_result():
     result = await frontier.arbitrate({"findings": [], "contradictions": []})
     assert result.decision == "respawn"
     assert result.spawn_objectives == ["Re-analyze JWT"]
+
+
+@pytest.mark.asyncio
+async def test_synthesize_returns_report():
+    fake = _FakeLLM({
+        "summary": "Found weak secrets",
+        "findings": [{"kind": "hardcoded_secret", "file": "config.py"}],
+        "confidence": 0.95,
+        "recommendations": ["Rotate secrets"],
+    })
+    cfg = FrontierConfig(enabled=True)
+    frontier = FrontierIntegration(cfg, llm_client=fake)
+    result = await frontier.synthesize({}, [])
+    assert result.summary == "Found weak secrets"
+    assert result.confidence == 0.95

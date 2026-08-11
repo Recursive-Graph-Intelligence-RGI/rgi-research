@@ -98,8 +98,22 @@ class FrontierIntegration:
     async def synthesize(self, graph_state: dict[str, Any], findings: list[dict]) -> SynthesisResult | None:
         if not self.config.enabled or not self.config.synthesize_at_end:
             return None
-        return SynthesisResult(
-            summary="local synthesis fallback",
-            findings=findings,
-            confidence=0.5,
+        prompt = (
+            "You are the final report synthesizer for a recursive code-intelligence engine. "
+            "Given the converged graph state and a list of grounded findings, produce the final report. "
+            "Return strictly JSON matching this schema:\n"
+            '{"summary": str, "findings": [{"kind": str, "severity": str, "detail": str, '
+            '"file": str, "line": int, "symbol": str, "confidence": float}], '
+            '"confidence": float (0.0-1.0), "recommendations": [str]}\n\n'
+            f"Graph state: {json.dumps(graph_state, default=str)[:2000]}\n\n"
+            f"Findings: {json.dumps(findings, default=str)[:6000]}"
         )
+        try:
+            raw = await self.llm_client.reason("Synthesize final report", prompt)
+            return SynthesisResult.model_validate(raw)
+        except Exception as exc:
+            return SynthesisResult(
+                summary=f"frontier synthesis failed: {exc}",
+                findings=findings,
+                confidence=0.5,
+            )

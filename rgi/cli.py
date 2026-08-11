@@ -11,34 +11,63 @@ from pathlib import Path
 
 from rgi.baseline import MOCK_CAVEAT, run_baseline
 from rgi.core.engine import execute_graph
-from rgi.core.findings import normalize_finding
+from rgi.core.findings import compile_findings, normalize_finding
 from rgi.core.harness import Harness, HarnessConfig
-from rgi.core.models import CognitiveGraph, GraphPolicy, GraphState, LoopType
+from rgi.core.models import CognitiveGraph, CognitiveNode, GraphPolicy, GraphState, LoopType, NodeState, NodeType
 from rgi.loops import initialize_graph_nodes
 from rgi.perception.code_parser import PerceptionLayer
 from rgi.perception.rlmlocal_perception import RlmlocalPerceptionLayer
 from rgi.reasoning.llm_client import LLMClient, MockLLMClient
 
 
-def build_report(root, harness, knowledge) -> dict:
+async def build_report(root, harness, knowledge) -> dict:
     graphs = [g for g in harness.graphs.values() if g.id != knowledge.id]
-    findings = []
+
+    # Deterministic scanner findings are canonical seeds; include them directly
+    # so weak models cannot drop real vulnerabilities during recursive reasoning.
+    scanner_findings = root.memory_snapshot.get("scanner_findings", [])
+
+    node_findings = []
     for graph in graphs:
         for f in graph.memory_snapshot.get("merged_findings", []):
-            findings.append({"graph": graph.state.objective, **f})
+            node_findings.append(f)
         for node in graph.nodes.values():
             if not isinstance(node.result, dict):
                 continue
             if "finding" in node.result:
-                normalized = normalize_finding(node.result["finding"])
-                if normalized is not None:
-                    normalized["confidence"] = node.confidence
-                    findings.append({"graph": graph.state.objective, **normalized})
-            for raw in node.result.get("findings", []):
-                normalized = normalize_finding(raw)
-                if normalized is not None:
-                    normalized["confidence"] = node.confidence
-                    findings.append({"graph": graph.state.objective, **normalized})
+                node_findings.append(node.result["finding"])
+            node_findings.extend(node.result.get("findings", []))
+
+    frontier = harness.frontier
+    if frontier.config.enabled and frontier.config.synthesize_at_end:
+        graph_state = {
+            "objective": root.state.objective,
+            "graphs_count": len(graphs),
+            "status": root.state.status,
+        }
+        try:
+            synth = await frontier.synthesize(graph_state, node_findings + scanner_findings)
+        except Exception as exc:
+            harness.audit.record("frontier_fallback", graph_id=root.id,
+                                 phase="synthesize", error=str(exc))
+            synth = None
+        if synth:
+            harness.audit.record("frontier_synthesis", graph_id=root.id,
+                                 findings_count=len(synth.findings),
+                                 confidence=synth.confidence)
+            return {
+                "objective": root.state.objective,
+                "status": root.state.status,
+                "aggregate_confidence": synth.confidence,
+                "findings": [normalize_finding(f) for f in synth.findings],
+                "summary": synth.summary,
+                "recommendations": synth.recommendations,
+                "llm_calls": harness.total_llm_calls,
+            }
+
+    compiled = compile_findings(scanner_findings, node_findings,
+                                require_grounded=True,
+                                target_path=harness.config.target_path)
     completed = [n for g in graphs for n in g.nodes.values()
                  if n.state.value == "completed"]
     aggregate = (sum(n.confidence for n in completed) / len(completed)) if completed else 0.0
@@ -76,7 +105,7 @@ def build_report(root, harness, knowledge) -> dict:
             "tokens_prompt": getattr(harness.llm_client, "tokens_prompt", 0),
             "tokens_completion": getattr(harness.llm_client, "tokens_completion", 0),
         },
-        "findings": findings,
+        "findings": compiled,
         "topology_used": {
             "root": f"{root.loop_type.value}:{root.id}",
             "subgraphs": [
@@ -152,13 +181,46 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     harness.audit.record("run_started", graph_id=root.id, objective=objective,
                          llm_mode="mock" if use_mock else provider)
 
+    # Step 2.5: Deterministic security scan seeds grounded findings before
+    # the LLM is asked to reason. Small local models miss obvious issues when
+    # they have to discover them; giving them a scanner report prevents that.
+    # We materialize the scan as a TOOL node so it participates in the graph
+    # audit and can trigger tool-driven verification subgraphs.
+    try:
+        scan_result = await harness.tool_registry.execute("security_scan", {"path": path})
+        scanner_findings = [
+            f for f in scan_result.get("findings", [])
+            if isinstance(f, dict)
+        ]
+        if scanner_findings:
+            root.memory_snapshot["scanner_findings"] = scanner_findings
+            ledger = root.memory_snapshot.setdefault("ledger", {"facts": [], "gaps": [], "guesses": []})
+            ledger["facts"].extend(
+                f"{f.get('kind')} at {f.get('file', '?')}:{f.get('line', '?')} — {f.get('detail', '')}"
+                for f in scanner_findings
+            )
+            scan_node = CognitiveNode(
+                type=NodeType.TOOL,
+                content="Run deterministic security scan",
+                parent_graph_id=root.id,
+                metadata={"tool": "security_scan", "params": {"path": path}},
+            )
+            scan_node.state = NodeState.COMPLETED
+            scan_node.result = scan_result
+            scan_node.confidence = 0.95
+            root.nodes[scan_node.id] = scan_node
+            harness.audit.record("security_scan_complete", graph_id=root.id,
+                                 findings_count=len(scanner_findings))
+    except Exception as exc:
+        harness.audit.record("security_scan_error", graph_id=root.id, error=str(exc))
+
     # Step 3: Recursive execution
     root = await execute_graph(root, harness)
 
     # Step 4: Persist and report
     for graph in harness.graphs.values():
         (data_dir / f"graph_{graph.id}.json").write_text(graph.model_dump_json(indent=2))
-    report = build_report(root, harness, knowledge)
+    report = await build_report(root, harness, knowledge)
     Path(output).write_text(json.dumps(report, indent=2))
     harness.audit.record("run_finished", graph_id=root.id, status=root.state.status,
                          llm_calls=harness.total_llm_calls)
