@@ -20,6 +20,9 @@ async def event_stream(
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
+            # Streams prepare before the middleware can add CORS headers, so
+            # SSE carries its own (server is localhost-only, no credentials).
+            "Access-Control-Allow-Origin": "*",
         },
     )
     await response.prepare(request)

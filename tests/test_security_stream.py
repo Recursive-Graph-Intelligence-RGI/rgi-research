@@ -41,9 +41,9 @@ async def test_security_scan_finds_hardcoded_secret(client: TestClient, tmp_path
 
 async def test_security_scan_missing_project(client: TestClient):
     resp = await client.post("/v1/projects/no-such/security-scan", json={})
-    assert resp.status == 200
-    text = await resp.text()
-    assert "project not found" in text
+    assert resp.status == 404
+    body = await resp.json()
+    assert body["error"] == "project_not_found"
 
 
 async def test_security_scan_override_path(client: TestClient, tmp_path):
@@ -52,12 +52,28 @@ async def test_security_scan_override_path(client: TestClient, tmp_path):
     import_snapshot(
         {"version": "rgi-graph-snapshot-v1", "nodes": [], "edges": []},
         "override",
-        path=None,
+        path=str(tmp_path),
     )
+    # Override path must be confined under the project root.
     resp = await client.post(
         "/v1/projects/override/security-scan",
-        json={"path": str(tmp_path)},
+        json={"path": str(tmp_path / "override.py")},
     )
     assert resp.status == 200
     text = await resp.text()
     assert "hardcoded_secret" in text
+
+
+async def test_security_scan_override_path_requires_project_root(client: TestClient, tmp_path):
+    import_snapshot(
+        {"version": "rgi-graph-snapshot-v1", "nodes": [], "edges": []},
+        "rootless",
+        path=None,
+    )
+    resp = await client.post(
+        "/v1/projects/rootless/security-scan",
+        json={"path": str(tmp_path)},
+    )
+    assert resp.status == 400
+    body = await resp.json()
+    assert "project has no filesystem path" in body["error"]

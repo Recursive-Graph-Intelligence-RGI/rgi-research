@@ -1,0 +1,1 @@
+"""RGI MCP server package."""

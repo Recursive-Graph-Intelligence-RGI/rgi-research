@@ -10,6 +10,7 @@ import tempfile
 import uuid
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from aiohttp import web
 
@@ -18,10 +19,44 @@ from rgi.api.project_store import STORE, ProjectStore
 from rgi.api.security_stream import security_scan_stream
 from rgi.api.snapshot import import_snapshot
 from rgi.cli import run_analysis
+from rgi.mcp.server import MCPServer
 
 logger = logging.getLogger(__name__)
 
 JobStatus = dict[str, Any]
+
+_LOCALHOST_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def _origin_allowed(origin: str) -> bool:
+    """Only localhost origins may call this server (DNS-rebinding defense)."""
+    try:
+        parts = urlsplit(origin)
+        return parts.scheme in ("http", "https") and parts.hostname in _LOCALHOST_HOSTS
+    except ValueError:
+        return False
+
+
+@web.middleware
+async def localhost_guard(request: web.Request, handler):
+    """Reject cross-origin / non-localhost requests before they reach a route.
+
+    Host check blocks DNS rebinding (a malicious page resolving to 127.0.0.1
+    would send a foreign Host). Origin check is defense in depth for browsers.
+    CORS headers are added so localhost pages (PWA dev server, Tauri webview)
+    may call the API. SSE responses add their own headers in event_stream.
+    """
+    host = (request.headers.get("Host", "") or "").split(":")[0].lower()
+    if host not in _LOCALHOST_HOSTS:
+        return web.json_response({"error": "forbidden_host"}, status=403)
+    origin = request.headers.get("Origin")
+    if origin and not _origin_allowed(origin):
+        return web.json_response({"error": "forbidden_origin"}, status=403)
+    resp = await handler(request)
+    resp.headers.setdefault("Access-Control-Allow-Origin", "*")
+    resp.headers.setdefault("Access-Control-Allow-Headers", "Content-Type, Accept")
+    resp.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+    return resp
 
 
 class AnalysisJobStore:
@@ -63,21 +98,25 @@ class RGIServer:
         self.host = host
         self.port = port
         self.store = AnalysisJobStore()
+        self._mcp = MCPServer()
         self._runner: web.AppRunner | None = None
         self._site: web.TCPSite | None = None
 
     def _make_app(self) -> web.Application:
         app = web.Application()
+        app.middlewares.append(localhost_guard)
         app.router.add_get("/health", self.health)
         app.router.add_post("/analyze", self.analyze)
         app.router.add_get("/jobs/{job_id}/status", self.status)
         app.router.add_get("/jobs/{job_id}/result", self.result)
         app.router.add_post("/shutdown", self.shutdown)
+        app.router.add_post("/mcp", self.mcp)
         app.router.add_get("/v1/projects/{project_id}/status", self.project_status)
         app.router.add_post("/v1/projects/{project_id}/snapshot", self.snapshot)
         app.router.add_post("/v1/projects/{project_id}/chat", self.chat)
         app.router.add_post("/v1/projects/{project_id}/security-scan", self.security_scan)
         app.router.add_post("/v1/projects/{project_id}/exec-result", self.exec_result)
+        app.router.add_route("OPTIONS", "/{tail:.*}", self._options)
         return app
 
     async def health(self, request: web.Request) -> web.Response:
@@ -202,6 +241,31 @@ class RGIServer:
         pending[body.get("opId")] = body
         return web.json_response({"status": "received"})
 
+    async def _options(self, request: web.Request) -> web.Response:
+        """CORS preflight. The middleware adds the allow headers."""
+        return web.Response(status=204)
+
+    async def mcp(self, request: web.Request) -> web.Response:
+        return await self._mcp.handle(request)
+
+    def _confine_path(self, project: Any, requested: str | None) -> str | None:
+        """Resolve a tool path under the project root; None means the project root.
+
+        Raises ValueError when the project has no filesystem path or the
+        requested path escapes the project root.
+        """
+        project_root = Path(project.path).resolve() if project.path else None
+        if requested is None:
+            return project.path
+        if project_root is None:
+            raise ValueError("project has no filesystem path")
+        p = Path(requested).resolve()
+        try:
+            p.relative_to(project_root)
+        except ValueError:
+            raise ValueError(f"path outside project root: {requested}")
+        return str(p)
+
     async def security_scan(self, request: web.Request) -> web.StreamResponse:
         from rgi.api.sse import event_stream
 
@@ -210,8 +274,15 @@ class RGIServer:
         except json.JSONDecodeError:
             body = {}
         project_id = request.match_info["project_id"]
+        project = STORE.get(project_id)
+        if project is None:
+            return web.json_response({"error": "project_not_found"}, status=404)
+        try:
+            safe_path = self._confine_path(project, body.get("path"))
+        except ValueError as exc:
+            return web.json_response({"error": str(exc)}, status=400)
         return await event_stream(
-            request, security_scan_stream(project_id, body.get("path"))
+            request, security_scan_stream(project_id, safe_path)
         )
 
     async def chat(self, request: web.Request) -> web.StreamResponse:
