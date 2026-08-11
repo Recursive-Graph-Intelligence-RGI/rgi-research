@@ -140,5 +140,4 @@ async def test_frontier_parse_failure_falls_back():
     cfg = FrontierConfig(enabled=True, provider="kimi")
     frontier = FrontierIntegration(cfg, llm_client=bad_llm)
     result = await frontier.synthesize({}, [])
-    assert result is not None
-    assert result.confidence == 0.5
+    assert result is None

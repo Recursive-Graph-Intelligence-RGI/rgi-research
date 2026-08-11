@@ -111,9 +111,5 @@ class FrontierIntegration:
         try:
             raw = await self.llm_client.reason("Synthesize final report", prompt)
             return SynthesisResult.model_validate(raw)
-        except Exception as exc:
-            return SynthesisResult(
-                summary=f"frontier synthesis failed: {exc}",
-                findings=findings,
-                confidence=0.5,
-            )
+        except Exception:
+            return None

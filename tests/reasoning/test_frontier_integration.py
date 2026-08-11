@@ -85,5 +85,6 @@ async def test_synthesize_returns_report():
     cfg = FrontierConfig(enabled=True)
     frontier = FrontierIntegration(cfg, llm_client=fake)
     result = await frontier.synthesize({}, [])
+    assert result is not None
     assert result.summary == "Found weak secrets"
     assert result.confidence == 0.95
