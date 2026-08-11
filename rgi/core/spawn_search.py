@@ -85,7 +85,7 @@ def generate_candidate_actions(graph: CognitiveGraph, harness: object) -> list[S
     return actions
 
 
-def decide_next_action(graph: CognitiveGraph, harness: object) -> SpawnAction | None:
+async def decide_next_action(graph: CognitiveGraph, harness: object) -> SpawnAction | None:
     candidates = generate_candidate_actions(graph, harness)
     if not candidates:
         return None

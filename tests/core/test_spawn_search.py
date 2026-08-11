@@ -63,8 +63,8 @@ def test_stop_action_has_zero_value():
     assert estimate_value(graph, stop) == 0.0
 
 
-def test_decide_next_action_prefers_sweep_over_stop():
+async def test_decide_next_action_prefers_sweep_over_stop():
     graph = _make_graph()
-    action = decide_next_action(graph, object())
+    action = await decide_next_action(graph, object())
     assert action is not None
     assert action.action_type == "execution_sweep"
