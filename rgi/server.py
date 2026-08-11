@@ -14,6 +14,7 @@ from typing import Any
 from aiohttp import web
 
 from rgi.api.project_store import STORE, ProjectStore
+from rgi.api.security_stream import security_scan_stream
 from rgi.api.snapshot import import_snapshot
 from rgi.cli import run_analysis
 
@@ -201,13 +202,16 @@ class RGIServer:
         return web.json_response({"status": "received"})
 
     async def security_scan(self, request: web.Request) -> web.StreamResponse:
-        # Placeholder until Task 1.4 imports the real implementation.
         from rgi.api.sse import event_stream
 
-        async def _fallback():
-            yield {"kind": "error", "message": "security_scan not yet implemented"}
-
-        return await event_stream(request, _fallback())
+        try:
+            body = await request.json()
+        except json.JSONDecodeError:
+            body = {}
+        project_id = request.match_info["project_id"]
+        return await event_stream(
+            request, security_scan_stream(project_id, body.get("path"))
+        )
 
     async def chat(self, request: web.Request) -> web.StreamResponse:
         # Placeholder until Task 1.3 imports the real implementation.
