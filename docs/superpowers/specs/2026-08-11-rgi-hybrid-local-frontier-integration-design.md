@@ -1,7 +1,7 @@
 # RGI Hybrid Local / Frontier Integration Design
 
 **Date:** 2026-08-11  
-**Status:** Design  
+**Status:** Implemented  
 **Scope:** Add an optional frontier-model integration layer to RGI that calls a frontier LLM only at high-leverage inflection points, while keeping recursive local subgraphs and REPL/tool loops as the primary compute engine.
 
 ---

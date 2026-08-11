@@ -51,6 +51,27 @@ def test_frontier_config_local_endpoint():
     assert cfg.api_key == "ollama"
 
 
+def test_frontier_integration_passes_endpoint_to_llm_client(monkeypatch):
+    captured = {}
+
+    def _fake_llm_client(*, model=None, base_url=None, api_key=None):
+        captured.update({"model": model, "base_url": base_url, "api_key": api_key})
+        return _FakeLLM({})
+
+    monkeypatch.setattr("rgi.reasoning.frontier_integration.LLMClient", _fake_llm_client)
+    cfg = FrontierConfig(
+        enabled=True,
+        model="qwen2.5:72b",
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+    )
+    frontier = FrontierIntegration(cfg)
+    assert captured["model"] == "qwen2.5:72b"
+    assert captured["base_url"] == "http://localhost:11434/v1"
+    assert captured["api_key"] == "ollama"
+    assert frontier.llm_client is not None
+
+
 @pytest.mark.asyncio
 async def test_frontier_integration_disabled_returns_none():
     cfg = FrontierConfig(enabled=False)

@@ -132,9 +132,13 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     if is_local_provider and not os.environ.get("RGI_LLM_API_KEY"):
         os.environ.setdefault("RGI_LLM_API_KEY", "ollama")
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
+    frontier_provider = os.environ.get("RGI_FRONTIER_PROVIDER", provider)
+    if frontier_provider in ("ollama",):
+        os.environ.setdefault("RGI_FRONTIER_BASE_URL", "http://localhost:11434/v1")
+        os.environ.setdefault("RGI_FRONTIER_API_KEY", "ollama")
     frontier_config = FrontierConfig(
-        enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").lower() in ("1", "true", "yes"),
-        provider=os.environ.get("RGI_FRONTIER_PROVIDER", provider),
+        enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").strip().lower() in ("1", "true", "yes"),
+        provider=frontier_provider,
         model=os.environ.get("RGI_FRONTIER_MODEL", model),
         base_url=os.environ.get("RGI_FRONTIER_BASE_URL"),
         api_key=os.environ.get("RGI_FRONTIER_API_KEY"),
