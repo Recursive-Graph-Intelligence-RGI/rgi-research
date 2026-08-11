@@ -291,6 +291,54 @@ stack (or py stack for py files).
 5. **Python decouple/carve/rename** — port the tree-sitter-python equivalents
    (the T0 gap in the matrix) if RGI-OS needs Python refactors standalone.
 
+### 8.5 GEPA — the procedural-memory loop (analyzed 2026-08-11)
+
+rlmlocal's GEPA (Grow/Evaluate/Promote/Activate) is the **self-healing prompt
+loop** — the procedural-memory half of the typed-memory design. It is real and
+shipped (not a skeleton), wired into the maintenance pass.
+
+**The loop (deterministic-miner → reflector → scorer → human-activate):**
+1. **traceMine (deterministic)**: clusters REAL compiler/verify errors from RED
+   traces (`classifyCompileErrors`: TS-codes, LINT-NEW, TYPE-NEW,
+   TESTS-REGRESSED, MODULE-NOT-FOUND, TEST-FAILURE), recency-weighted
+   (14-day half-life), sanitized of project identity (lessons must hold across
+   projects), with the newest GREEN artifact as a real winning-change demo.
+2. **laneGate (pure)**: a lane evolves only when — it's model-driven
+   (`EVOLVABLE_LANES = ['graph-coder']`; op lanes are deterministic engines with
+   no evolution leverage), trace volume crosses `GEPA_LANE_FLOOR = 20`, there are
+   current failure modes, the 24h cooldown passed, and ≥10 new traces since last
+   fire. Below the floor, the deterministic miner IS the honest reflection.
+3. **reflect (model-agnostic)**: the user's CONFIGURED coder model reads the
+   mined failure classes + GREEN demo + incumbent prompt and writes ONE candidate
+   lane prompt (≤1200 chars, project-agnostic by instruction).
+4. **score (objective)**: candidate AND incumbent replay the SAME live trainset
+   through shadow `verify_patch` (`evaluateOverTrainset`) — a candidate that
+   doesn't BEAT the incumbent (ties ≠ progress) is never proposed; no-incumbent
+   bar 0.5.
+5. **propose (human activation)**: the winner is saved INACTIVE with its score;
+   **ACTIVATION STAYS HUMAN** — prompts are production surface, same as code.
+   Re-fire stamps (cooldown/delta) are written BEFORE the fallible model call so
+   a failure can never hot-loop the maintenance pass.
+
+**Why it matters for RGI-OS:** GEPA is the *procedural memory* — the loop that
+improves the system's own prompts from verified outcomes. It is the
+self-improvement half of the artifact layer: traces = episodic artifacts, mined
+lessons = procedural artifacts, prompt proposals = human-gated promotion. RGI-OS
+inherits this whole loop; RGI's contribution is the *artifact layer* underneath
+it (traces/lessons/proposals as content-addressed, provenance-carrying artifacts)
+so the loop's data is replayable and queryable across sessions.
+
+**RGI integration point:** GEPA is currently **JS/TS-lane-specific** (graph-coder)
+and its verify chain is the TS executor. For RGI-OS with Python refactors, the
+same loop shape applies to Python lanes (trace from pytest/pyflakes, mine Python
+error classes, reflect + score + human-activate) — the *shape* (floor → reflect →
+objective score → human activation) is language-agnostic and should be preserved.
+
+**Known discipline (do not break):** floor-gated (evolution is earned by data),
+objective scoring (never self-assessment), human activation (prompts are
+production surface), no hot-loops (pre-stamped cooldown), model-agnostic reflector,
+dev/monorepo-only (the sandbox executor excludes the GEPA family by design).
+
 ## 9. Artifact layer — a first-class principle (added 2026-08-11)
 
 ### 9.1 The principle

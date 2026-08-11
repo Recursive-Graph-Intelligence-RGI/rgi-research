@@ -88,14 +88,31 @@ card (earlier commits), then `72ab4fd` — executor path-traversal fix (confine_
 1. **Phase 3 benchmark re-run** — the honest verdict on whether RGI's engine beats
    rlmlocal's brain (one run, complete substrate). The plan's disciplined next move.
 2. **Wire perception layers into the artifact cache** (prove O(1) lookup on a real
-   graph build) — plan §9.5.
+   graph build) — plan §9.5. **DONE** — `ingest_codebase_cached`, 2 tests.
 3. **Commit the deep-dive raw reports** to `docs/internal/` (currently only
-   syntheses are in the plan).
+   syntheses are in the plan). **DONE** — `2026-08-11-rlmlocal-refactor-engine-analysis.md`,
+   `2026-08-11-parser-map-analysis.md`.
 4. **14 untracked `bench/*.mts` probes** in rlmlocal — delete/commit/leave (user's
    call, still open).
 5. **Phase 4 hardening** — packaging, production build config, smoke script.
 6. **fortmemory as durable store** — Phase 6, when governance lands; artifact
    schema already designed for it.
+7. **GEPA analyzed** — rlmlocal's self-healing prompt loop (traceMine → laneGate →
+   reflect → objective score → human activate) is the procedural-memory half of
+   the typed-memory design. Real + shipped, JS/TS-lane-specific; RGI-OS inherits
+   the loop, RGI adds the artifact layer underneath it. Plan §8.5.
+
+### Memory (the "let you loose" enabler, as of end of session)
+
+- **Working memory:** this session log + the canonical plan (committed, pushed)
+- **Artifact memory:** `rgi/artifacts.py` content-addressed cache; perception
+  wired in (`ingest_codebase_cached` → O(1) world-model lookup)
+- **Deep analysis:** 4 committed reports (refactor engine, parser map, execution
+  layer, C2/session notes) + the 6 plan sections
+- **Procedural memory (future):** GEPA loop in rlmlocal; the artifact layer makes
+  its traces/lessons/proposals replayable + queryable
+- **Governed durable memory (Phase 6):** fortmemory-vault (its writes require
+  FortSignal proof by design)
 
 ### Running commands (for future sessions)
 
