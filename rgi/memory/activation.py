@@ -8,6 +8,11 @@ from rgi.core.models import CognitiveGraph
 
 _WORD_RE = re.compile(r"[a-zA-Z]{3,}")
 
+# Symbol extraction: dotted names (jwt.decode, utils.follow_symlinks),
+# snake_case, camelCase, and bare identifiers that could be a function/class.
+_DOTTED_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*\.[a-zA-Z_][a-zA-Z0-9_]*")
+_IDENT_RE = re.compile(r"[a-zA-Z_][a-zA-Z0-9_]*")
+
 # Vocabulary bridge: objective language -> code language (see status report §4.1).
 # v0.2 candidate 1; embeddings (candidate 4) replace this with real association.
 SEED_ALIASES: dict[str, set[str]] = {
@@ -15,6 +20,54 @@ SEED_ALIASES: dict[str, set[str]] = {
     "security": {"secret", "password", "vulnerability", "injection", "config", "key"},
     "authorization": {"auth", "permission", "access", "role"},
 }
+
+
+def extract_symbols(query: str) -> set[str]:
+    """Candidate symbol names from the objective.
+
+    Dotted names first (``jwt.decode``), then bare identifiers that look like
+    code (snake_case / camelCase / short tokens). Pure prose words like
+    ``security`` are excluded — they are keyword territory, not symbols.
+    """
+    symbols: set[str] = set()
+    for m in _DOTTED_RE.finditer(query):
+        symbols.add(m.group(0))
+    for m in _IDENT_RE.finditer(query):
+        tok = m.group(0)
+        if "_" in tok or (tok[:1].isupper() and len(tok) > 1):
+            symbols.add(tok)
+        elif len(tok) >= 4 and tok not in SEED_ALIASES:
+            # bare lowercase identifier that isn't a stopword alias — could be
+            # a function/module name (e.g. 'verify_token', 'session_store')
+            symbols.add(tok)
+    return symbols
+
+
+def symbol_seed_scores(graph: CognitiveGraph, symbols: set[str]) -> dict[str, float]:
+    """Seed activation from graph symbols: nodes whose name matches a symbol,
+    and both endpoints of edges whose symbol matches. Returns {node_id: score}.
+    """
+    if not symbols:
+        return {}
+    seeds: dict[str, float] = {}
+    # 1. Node metadata names (functions, classes, modules, methods).
+    for nid, node in graph.nodes.items():
+        name = str(node.metadata.get("name") or "").strip()
+        if name and name in symbols:
+            seeds[nid] = max(seeds.get(nid, 0.0), 1.0)
+    # 2. Edge symbols (imports/calls carry the symbol that crosses files).
+    for edge in graph.edges:
+        sym = str(edge.metadata.get("symbol") or "").strip()
+        if not sym:
+            continue
+        # Exact match, or dotted-symbol head/tail match (jwt.decode vs decode).
+        hit = sym in symbols or any(
+            s in sym or sym in s for s in symbols
+        )
+        if hit:
+            seeds[edge.source] = max(seeds.get(edge.source, 0.0), 0.9)
+            seeds[edge.target] = max(seeds.get(edge.target, 0.0), 0.9)
+    return seeds
 
 
 def _top_k(scores: dict[str, float], n_nodes: int, scale: float = 2.0,
@@ -48,6 +101,12 @@ class ActivationEngine:
             hits = sum(1 for k in keywords if k in text)
             base = hits / len(original_keywords) if original_keywords else 0.0
             scores[nid] = min(1.0, base + 0.3) if hits else 0.0
+
+        # 1b. Symbol-aware seed: objective names a symbol (jwt.decode,
+        # follow_symlinks) -> activate the nodes/edges that carry it.
+        symbol_seeds = symbol_seed_scores(graph, extract_symbols(query))
+        for nid, s in symbol_seeds.items():
+            scores[nid] = max(scores.get(nid, 0.0), s)
 
         # 2. One-hop propagation: child gets parent_score * weight * decay
         for edge in graph.edges:
@@ -98,6 +157,11 @@ class EmbeddingActivationEngine:
             n.id: max(0.0, cosine(query_vec, self.cache[hash(n.content)]))
             for n in nodes
         }
+        # Symbol-aware seed: objective names a symbol -> activate the graph
+        # entities that carry it (node names + edge symbols), max-merged so a
+        # direct symbol hit outranks a fuzzy cosine.
+        for nid, s in symbol_seed_scores(graph, extract_symbols(query)).items():
+            scores[nid] = max(scores.get(nid, 0.0), s)
         for _ in range(self.SPREAD_ITERATIONS):
             for edge in graph.edges:
                 spread = scores.get(edge.source, 0.0) * edge.weight * self.DECAY
