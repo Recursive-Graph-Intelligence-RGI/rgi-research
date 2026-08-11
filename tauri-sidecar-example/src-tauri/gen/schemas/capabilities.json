@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Capability for the main window — allow the folder picker dialog.","local":true,"windows":["main"],"permissions":["core:default","dialog:default"]}}

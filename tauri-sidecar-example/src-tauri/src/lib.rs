@@ -48,6 +48,21 @@ fn python_executable() -> String {
     std::env::var("RGI_PYTHON_PATH").unwrap_or_else(|_| "python".to_string())
 }
 
+/// The RGI package lives in the repo, not on the Python path. The sidecar may
+/// be launched from anywhere, so resolve the repo root relative to this binary
+/// (target/debug/../../.. = the example root) and walk up to the rgi repo root.
+fn rgi_working_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let mut dir = exe.parent()?.to_path_buf(); // .../target/debug
+    for _ in 0..6 {
+        if dir.join("rgi").join("__init__.py").is_file() {
+            return Some(dir);
+        }
+        dir = dir.parent()?.to_path_buf();
+    }
+    None
+}
+
 fn default_allowed_root() -> PathBuf {
     // Default hard boundary: the user's home directory. In a real product this
     // would be configurable at install time or per-workspace.
@@ -99,6 +114,13 @@ fn start_rgi(state: State<RGIState>) -> Result<StartResult, String> {
         .arg("127.0.0.1")
         .arg("--port")
         .arg(port.to_string());
+    if let Some(dir) = rgi_working_dir() {
+        cmd.current_dir(dir);
+    } else {
+        return Err(
+            "could not locate the rgi package (rgi/__init__.py) above this binary".to_string(),
+        );
+    }
 
     governance.apply_to(&mut cmd);
 
@@ -200,7 +222,7 @@ fn security_scan(state: State<RGIState>, path: String) -> Result<serde_json::Val
     .send_json(&serde_json::json!({}))
     .map_err(|e| format!("security scan failed: {}", e))?;
 
-    let mut body = scan.into_string().map_err(|e| format!("read body failed: {}", e))?;
+    let body = scan.into_string().map_err(|e| format!("read body failed: {}", e))?;
     // Strip SSE framing into one concatenated JSON doc for the UI.
     let mut findings: Vec<serde_json::Value> = Vec::new();
     for line in body.lines() {
