@@ -50,7 +50,7 @@ class CognitiveNode(BaseModel):
 class CognitiveEdge(BaseModel):
     source: str                     # Node ID
     target: str                     # Node ID
-    edge_type: Literal["dependency", "flow", "feedback", "triggers", "verifies", "activates"]
+    edge_type: Literal["dependency", "flow", "feedback", "triggers", "verifies", "activates", "contains", "imports"]
     weight: float = 1.0
     metadata: Dict = {}
 

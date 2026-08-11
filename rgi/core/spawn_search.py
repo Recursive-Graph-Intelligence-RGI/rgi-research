@@ -1,7 +1,12 @@
 """Adaptive spawn search for RGI graph action selection."""
+import time
 from dataclasses import dataclass, field
 
 from rgi.core.models import CognitiveGraph, NodeState, NodeType
+
+
+class SpawnSearchTimeoutError(TimeoutError):
+    """Raised when spawn-search decision logic exceeds its configured budget."""
 
 
 @dataclass
@@ -49,14 +54,21 @@ def _confidence_penalty(graph: CognitiveGraph, action: SpawnAction) -> float:
     return 1.0 - (sum(confs) / len(confs))
 
 
+def _deadlock_bonus(action: SpawnAction) -> float:
+    if action.action_type != "frontier_arbitrate":
+        return 0.0
+    return float(len(action.metadata.get("deadlock_signals", [])))
+
+
 def estimate_value(graph: CognitiveGraph, action: SpawnAction) -> float:
     if action.action_type == "stop":
         return 0.0
     coverage = _coverage_bonus(graph, action)
     tool = _tool_signal(graph, action)
     penalty = _confidence_penalty(graph, action)
+    deadlock = _deadlock_bonus(action)
     cost = max(action.estimated_cost, 1)
-    return (coverage + tool) / (cost + penalty + 1e-9)
+    return (coverage + tool + deadlock) / (cost + penalty + 1e-9)
 
 
 def _uncovered_files(graph: CognitiveGraph) -> list[str]:
@@ -67,6 +79,49 @@ def _uncovered_files(graph: CognitiveGraph) -> list[str]:
         if n.type == NodeType.MEMORY and n.metadata.get("entity_kind") == "module":
             covered.add(n.metadata.get("file", ""))
     return sorted(f for f in files if f not in covered)
+
+
+def _avg_confidence_for_deadlock(graph: CognitiveGraph) -> float:
+    confs = [n.confidence for n in graph.nodes.values()
+             if n.state == NodeState.COMPLETED]
+    confs += [float(f.get("confidence", 0.5))
+              for f in graph.memory_snapshot.get("merged_findings", [])]
+    return sum(confs) / len(confs) if confs else 0.0
+
+
+def _deadlock_signals(graph: CognitiveGraph, harness: object) -> list[str]:
+    signals = []
+    avg = _avg_confidence_for_deadlock(graph)
+    if (graph.state.iteration >= graph.state.max_iterations - 1
+            and avg < graph.state.confidence_threshold):
+        signals.append("max_iterations_low_confidence")
+
+    findings = []
+    for n in graph.nodes.values():
+        if n.state != NodeState.COMPLETED or not isinstance(n.result, dict):
+            continue
+        if "finding" in n.result:
+            findings.append(n.result["finding"])
+        elif "findings" in n.result:
+            findings.extend(n.result["findings"])
+    by_loc: dict[tuple, list[dict]] = {}
+    for f in findings:
+        if not isinstance(f, dict):
+            continue
+        loc = (f.get("file"), f.get("line"), f.get("symbol"))
+        by_loc.setdefault(loc, []).append(f)
+    if any(len(group) > 1 for group in by_loc.values()):
+        signals.append("contradictions")
+
+    audit = getattr(harness, "audit", None)
+    events = getattr(audit, "events", []) if audit is not None else []
+    rejected = sum(
+        1 for e in events
+        if e.get("event") == "spawn_rejected" and e.get("graph_id") == graph.id
+    )
+    if rejected >= 3:
+        signals.append("repeated_spawn_rejections")
+    return signals
 
 
 def generate_candidate_actions(graph: CognitiveGraph, harness: object) -> list[SpawnAction]:
@@ -124,11 +179,29 @@ def generate_candidate_actions(graph: CognitiveGraph, harness: object) -> list[S
             metadata={"target_nodes": weak_reasoning},
         ))
 
+    # Frontier arbitration when deadlock signals are present
+    deadlock = _deadlock_signals(graph, harness)
+    if deadlock:
+        actions.append(SpawnAction(
+            action_type="frontier_arbitrate",
+            objective="Request frontier arbitration to resolve deadlock",
+            target_files=[],
+            reason="deadlock:" + ",".join(deadlock),
+            estimated_cost=1,
+            metadata={"deadlock_signals": deadlock},
+        ))
+
     return actions
 
 
-async def decide_next_action(graph: CognitiveGraph, harness: object) -> SpawnAction | None:
+async def decide_next_action(graph: CognitiveGraph, harness: object,
+                             max_time: float | None = None) -> SpawnAction | None:
+    start = time.monotonic()
     candidates = generate_candidate_actions(graph, harness)
+    if max_time is not None and (time.monotonic() - start) >= max_time:
+        raise SpawnSearchTimeoutError(
+            f"spawn_search decision exceeded max_time={max_time}s"
+        )
     if not candidates:
         return None
     scored = [(estimate_value(graph, a), a) for a in candidates]

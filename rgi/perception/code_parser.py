@@ -19,8 +19,11 @@ class PerceptionLayer:
         )
         module_nodes: dict[str, str] = {}  # module name -> node id
 
-        for py_file in sorted(root.rglob("*.py")):
-            tree = ast.parse(py_file.read_text())
+        for py_file in sorted(p for p in root.rglob("*.py") if p.is_file()):
+            try:
+                tree = ast.parse(py_file.read_text())
+            except SyntaxError:
+                continue
             module = py_file.stem
 
             mod_node = CognitiveNode(
@@ -54,9 +57,11 @@ class PerceptionLayer:
             mod_node.metadata["imports"] = imports
 
         # Inferred dependency edges between local modules (confidence 0.7)
-        for py_file in sorted(root.rglob("*.py")):
+        for py_file in sorted(p for p in root.rglob("*.py") if p.is_file()):
             module = py_file.stem
-            src_id = module_nodes[module]
+            src_id = module_nodes.get(module)
+            if src_id is None:
+                continue
             for imp in graph.nodes[src_id].metadata.get("imports", []):
                 top = imp.split(".")[0]
                 if top in module_nodes and top != module:

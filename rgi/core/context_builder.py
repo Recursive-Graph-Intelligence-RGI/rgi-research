@@ -11,11 +11,18 @@ class ContextBuilder:
     MAX_CHARS = 16000  # ~4000 tokens of chatter (neighbors, memory, policy)
     SOURCE_MAX_CHARS = 32000  # ~8000 tokens of actual source code
 
-    def build(self, node: CognitiveNode, graph: CognitiveGraph) -> str:
+    def build(self, node: CognitiveNode, graph: CognitiveGraph,
+              tools: list[dict] | None = None) -> str:
         parts = [
             f"OBJECTIVE: {graph.state.objective}",
             f"TASK: {node.content}",
         ]
+
+        if tools:
+            parts.append("AVAILABLE TOOLS:")
+            for t in tools[:30]:  # cap to keep context bounded
+                fn = t.get("function", {})
+                parts.append(f"- {fn.get('name')}: {fn.get('description', '')}")
 
         neighbors = [
             n for n in graph.nodes.values()

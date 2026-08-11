@@ -45,6 +45,11 @@ class HashEmbeddings:
 
 
 class OpenAICompatibleEmbeddings:
+    # Conservative char budget: local nomic-embed-text advertises 2048 tokens;
+    # ~4 chars/token gives 8192, but truncation to 6000 leaves headroom for
+    # tokenization overhead and keeps large-file embeddings from 400-ing.
+    MAX_CHARS = int(os.environ.get("RGI_EMBED_MAX_CHARS", "6000"))
+
     def __init__(self, base_url: str, api_key: str = "", model: str = "nomic-embed-text"):
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
@@ -53,11 +58,14 @@ class OpenAICompatibleEmbeddings:
     async def embed(self, texts: list[str]) -> list[list[float]]:
         import httpx
         timeout = float(os.environ.get("RGI_EMBED_TIMEOUT", "60"))
+        # Truncate before sending so large source files don't exceed the
+        # embedding model's context window (observed 400 on aiohttp/R3).
+        safe_texts = [t[: self.MAX_CHARS] for t in texts]
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
                 f"{self.base_url}/embeddings",
                 headers=self._headers(),
-                json={"model": self.model, "input": texts},
+                json={"model": self.model, "input": safe_texts},
             )
             resp.raise_for_status()
             return [row["embedding"] for row in resp.json()["data"]]

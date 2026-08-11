@@ -62,7 +62,10 @@ async def _execute_spawn_action(graph: CognitiveGraph, harness: Harness,
         return True
 
     if action.action_type == "frontier_arbitrate":
-        # Handled separately by existing needs_frontier_arbitration path.
+        frontier_config = getattr(harness, "frontier_config", None)
+        if frontier_config and getattr(frontier_config, "enabled", False):
+            graph.memory_snapshot["frontier_arbitrate_triggered"] = True
+            return True
         return False
 
     return False
@@ -242,7 +245,10 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
                                      reason="max_spawn_rounds", dropped=len(dropped))
             elif harness.config.spawn_search_enabled:
                 try:
-                    action = await decide_next_action(graph, harness)
+                    action = await decide_next_action(
+                        graph, harness,
+                        max_time=harness.config.spawn_search_max_time,
+                    )
                 except Exception as exc:
                     harness.audit.record("spawn_search_fallback", graph_id=graph.id,
                                          error=f"{type(exc).__name__}: {exc}")
@@ -727,6 +733,8 @@ def _detect_contradictions(findings: list[dict]) -> list[dict]:
 def needs_frontier_arbitration(graph: CognitiveGraph, harness: Harness) -> bool:
     if not harness.frontier_config.enabled or not harness.frontier_config.arbitrate_on_deadlock:
         return False
+    if graph.memory_snapshot.pop("frontier_arbitrate_triggered", False):
+        return True
     arbitration_count = graph.memory_snapshot.get("frontier_arbitration_count", 0)
     if arbitration_count >= harness.frontier_config.max_arbitration_calls:
         return False

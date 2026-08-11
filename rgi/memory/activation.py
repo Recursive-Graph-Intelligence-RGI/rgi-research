@@ -1,6 +1,7 @@
 """Activation engine: attention, not retrieval. Seeds relevant nodes by
 keyword overlap, propagates one hop with decay, rewards nodes that were
 part of past successful corrections. v0.2 swaps internals only."""
+import os
 import re
 
 from rgi.core.models import CognitiveGraph
@@ -16,10 +17,24 @@ SEED_ALIASES: dict[str, set[str]] = {
 }
 
 
+def _top_k(scores: dict[str, float], n_nodes: int, scale: float = 2.0,
+           min_k: int = 10) -> dict[str, float]:
+    """Scale attention with graph size: large codebases must not activate
+    every node every iteration. K grows sub-linearly (sqrt) so coverage
+    increases while per-iteration work stays bounded."""
+    if n_nodes <= min_k:
+        return scores
+    k = max(min_k, int(n_nodes ** 0.5 * scale))
+    threshold_score = sorted(scores.values(), reverse=True)[k - 1]
+    return {nid: s for nid, s in scores.items() if s >= threshold_score}
+
+
 class ActivationEngine:
     DECAY = 0.8
     threshold = 0.5
     HISTORY_BONUS = 0.1
+    TOP_K_SCALE = float(os.environ.get("RGI_ACTIVATION_TOP_K_SCALE", "2.0"))
+    TOP_K_MIN = int(os.environ.get("RGI_ACTIVATION_TOP_K_MIN", "10"))
 
     def propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
         original_keywords = {w.lower() for w in _WORD_RE.findall(query)}
@@ -45,7 +60,7 @@ class ActivationEngine:
             if any(h.get("correction_success") for h in node.history):
                 scores[nid] = min(1.0, scores.get(nid, 0.0) + self.HISTORY_BONUS)
 
-        return scores
+        return _top_k(scores, len(graph.nodes), self.TOP_K_SCALE, self.TOP_K_MIN)
 
     async def a_propagate(self, graph: CognitiveGraph, query: str) -> dict[str, float]:
         """Async seam: embedding engines implement natively; keyword engine wraps."""
@@ -60,6 +75,8 @@ class EmbeddingActivationEngine:
     DECAY = 0.8
     SPREAD_ITERATIONS = 3
     HISTORY_BONUS = 0.1
+    TOP_K_SCALE = float(os.environ.get("RGI_ACTIVATION_TOP_K_SCALE", "2.0"))
+    TOP_K_MIN = int(os.environ.get("RGI_ACTIVATION_TOP_K_MIN", "10"))
 
     def __init__(self, provider, cache: dict | None = None, threshold: float = 0.5):
         self.provider = provider
@@ -89,4 +106,4 @@ class EmbeddingActivationEngine:
         for nid, node in graph.nodes.items():
             if any(h.get("correction_success") for h in node.history):
                 scores[nid] = min(1.0, scores.get(nid, 0.0) + self.HISTORY_BONUS)
-        return scores
+        return _top_k(scores, len(nodes), self.TOP_K_SCALE, self.TOP_K_MIN)
