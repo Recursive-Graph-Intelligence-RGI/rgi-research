@@ -55,3 +55,16 @@ def test_generates_execution_sweep_for_uncovered_files():
     sweep = [a for a in actions if a.action_type == "execution_sweep"]
     assert len(sweep) == 1
     assert "a.py" in sweep[0].target_files
+
+
+def test_stop_action_has_zero_value():
+    graph = _make_graph()
+    stop = SpawnAction("stop", "", [], "stop", 0, {})
+    assert estimate_value(graph, stop) == 0.0
+
+
+def test_decide_next_action_prefers_sweep_over_stop():
+    graph = _make_graph()
+    action = decide_next_action(graph, object())
+    assert action is not None
+    assert action.action_type == "execution_sweep"
