@@ -37,7 +37,12 @@ async def main():
             continue
         n_files = len(list(Path(path).rglob("*.py")))
         target = {"name": name, "path": path, "ground_truth": gt_path,
-                  "max_total_nodes": int(os.environ.get("RGI_C1_MAX_NODES", "200")),
+                  # Size-aware node budget: large real codebases need more
+                  # working memory than the demo default, but activation top-K
+                  # keeps per-iteration work bounded.
+                  "max_total_nodes": max(
+                      int(os.environ.get("RGI_C1_MAX_NODES", "200")),
+                      100 + n_files * 3),
                   "max_llm_calls": int(os.environ.get("RGI_C1_MAX_LLM_CALLS", "60"))}
         ground_truth = json.loads(Path(gt_path).read_text())
         for condition in CONDITIONS:
@@ -45,17 +50,25 @@ async def main():
                 continue
             # Size-aware time limit: the default 300s wall is too short for
             # larger real-code targets (observed 7b R4 and 4b R3 time out
-            # with good recall). Pre/post data preserved for re-runs.
-            os.environ["RGI_MAX_SECONDS"] = str(max(300, 180 + n_files * 5))
+            # with good recall). Engine-ceiling bump adds 60s base margin.
+            os.environ["RGI_MAX_SECONDS"] = str(max(300, 240 + n_files * 5))
+            # Size-aware iteration/confidence budget: large codebases need more
+            # loops to converge and a slightly lower bar to consolidate findings.
+            os.environ["RGI_MAX_ITERATIONS"] = str(int(10 + n_files / 20))
+            os.environ["RGI_CONFIDENCE_THRESHOLD"] = str(
+                round(max(0.55, 0.7 - n_files / 1000), 3))
             started = time.monotonic()
             cell = {"target": name, "n_files": n_files, "condition": condition}
+            max_seconds = int(os.environ.get("RGI_MAX_SECONDS", "300"))
             try:
-                report = await _run_condition(
-                    condition, target,
-                    "Analyze code security across this codebase",
-                    mock=False, provider="ollama", model=None,
-                    max_llm_calls=target["max_llm_calls"], run_idx=0,
-                    max_total_nodes=target["max_total_nodes"], embed=True)
+                report = await asyncio.wait_for(
+                    _run_condition(
+                        condition, target,
+                        "Analyze code security across this codebase",
+                        mock=False, provider="ollama", model=None,
+                        max_llm_calls=target["max_llm_calls"], run_idx=0,
+                        max_total_nodes=target["max_total_nodes"], embed=True),
+                    timeout=max_seconds)
                 graded = score_report_full(report, ground_truth)
                 cell.update({
                     "status": report.get("status", "unknown"),
@@ -64,6 +77,9 @@ async def main():
                     "corrections": report.get("corrections_made", 0),
                     "topology_metrics": report.get("topology_metrics", {}),
                 })
+            except asyncio.TimeoutError:
+                cell.update({"status": "failed", "recall": 0.0,
+                             "error": f"cell exceeded {max_seconds}s budget"})
             except Exception as exc:  # cell-level containment
                 cell.update({"status": "error", "recall": 0.0,
                              "error": f"{type(exc).__name__}: {exc}"[:300]})
