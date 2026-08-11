@@ -30,10 +30,18 @@ TARGETS = [
 CONDITIONS = ("rgi", "single", "fixed")
 
 
+def _normalize(text: str) -> str:
+    """Normalize finding text for term matching: lowercase, collapse
+    underscore/hyphen to space so 'sql_injection' matches the ground-truth
+    term 'sql injection' (the deterministic scanner emits underscores; the
+    LLM emits spaces — same meaning, one scorer)."""
+    return text.lower().replace("_", " ").replace("-", " ")
+
+
 def score_recall(report: dict, ground_truth: dict) -> float:
-    text = json.dumps(report.get("findings", [])).lower()
+    text = _normalize(json.dumps(report.get("findings", [])))
     vulns = ground_truth["vulns"]
-    hits = sum(1 for v in vulns if any(t.lower() in text for t in v["terms"]))
+    hits = sum(1 for v in vulns if any(_normalize(t) in text for t in v["terms"]))
     return hits / len(vulns) if vulns else 0.0
 
 
@@ -50,12 +58,12 @@ def score_report_full(report: dict, ground_truth: dict) -> dict:
         if t not in seen:
             seen.add(t)
             unique.append(t)
-    text = " ".join(unique)
+    text = _normalize(" ".join(unique))
     vulns = ground_truth["vulns"]
-    hits = sum(1 for v in vulns if any(term.lower() in text for term in v["terms"]))
+    hits = sum(1 for v in vulns if any(_normalize(term) in text for term in v["terms"]))
     relevant = sum(
         1 for t in unique
-        if any(term.lower() in t for v in vulns for term in v["terms"])
+        if any(_normalize(term) in _normalize(t) for v in vulns for term in v["terms"])
     )
     return {
         "recall": round(hits / len(vulns), 3) if vulns else 0.0,

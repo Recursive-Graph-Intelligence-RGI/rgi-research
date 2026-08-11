@@ -23,7 +23,14 @@ TARGETS = {  # run order = measured file count (18, 21, 80, 132)
 CONDITIONS = tuple(os.environ.get("RGI_C2_CONDITIONS", "rgi,single,fixed").split(","))
 _ONLY = os.environ.get("RGI_C2_TARGETS")  # e.g. "R1_vulpy"; None = all
 _MODEL_TAG = (os.environ.get("RGI_LLM_MODEL") or "mock").replace("/", "_").replace(":", "_").replace(".", "_")
-OUT = Path(f"data/real_c2_{_MODEL_TAG}.json")
+# Phase 3 experiment tag: substrate re-run writes a FRESH output file so it
+# never resumes the old C2 baseline cells (which used ast perception).
+_EXP_TAG = os.environ.get("RGI_C2_EXP_TAG", "substrate-v1")
+OUT = Path(f"data/real_c2_{_MODEL_TAG}_{_EXP_TAG}.json")
+# The v0.3 substrate (multi-language + call/reference/data-flow graphs +
+# symbol-aware activation) is the variable under test. Default ON for the
+# Phase 3 re-run; set 0 to reproduce the C2 (ast-perception) baseline.
+os.environ.setdefault("RGI_RLMLocal_PERCEPTION", "1")
 
 
 async def main():
