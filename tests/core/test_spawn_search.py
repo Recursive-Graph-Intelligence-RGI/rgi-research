@@ -29,3 +29,29 @@ def test_spawn_node_defaults():
     node = SpawnNode(state_snapshot={}, action=action, parent=None, children=[])
     assert node.visits == 0
     assert node.total_value == 0.0
+
+
+def _make_graph():
+    graph = CognitiveGraph(
+        loop_type=LoopType.PLANNING,
+        state=GraphState(objective="test", max_iterations=10),
+        policy=GraphPolicy(auto_spawn=True),
+    )
+    graph.memory_snapshot["world_model"] = {
+        "files": ["a.py", "b.py"],
+    }
+    return graph
+
+
+def test_generates_stop_action():
+    graph = _make_graph()
+    actions = generate_candidate_actions(graph, object())
+    assert any(a.action_type == "stop" for a in actions)
+
+
+def test_generates_execution_sweep_for_uncovered_files():
+    graph = _make_graph()
+    actions = generate_candidate_actions(graph, object())
+    sweep = [a for a in actions if a.action_type == "execution_sweep"]
+    assert len(sweep) == 1
+    assert "a.py" in sweep[0].target_files
