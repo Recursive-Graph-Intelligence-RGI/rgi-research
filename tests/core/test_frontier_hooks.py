@@ -5,6 +5,7 @@ from rgi.reasoning.frontier_integration import (
     ArbitrationResult, FrontierConfig, FrontierIntegration, PlanResult,
     SynthesisResult,
 )
+from rgi.reasoning.llm_client import MockLLMClient
 from rgi.loops import initialize_graph_nodes
 
 
@@ -131,3 +132,13 @@ async def test_build_report_uses_frontier_synthesis():
     report = await build_report(root, harness, root)
     assert report["summary"] == "synth summary"
     assert report["aggregate_confidence"] == 0.9
+
+
+@pytest.mark.asyncio
+async def test_frontier_parse_failure_falls_back():
+    bad_llm = MockLLMClient(script={"synthesize": [{"invalid": "shape"}]})
+    cfg = FrontierConfig(enabled=True, provider="kimi")
+    frontier = FrontierIntegration(cfg, llm_client=bad_llm)
+    result = await frontier.synthesize({}, [])
+    assert result is not None
+    assert result.confidence == 0.5

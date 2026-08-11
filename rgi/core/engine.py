@@ -29,7 +29,12 @@ async def execute_graph(graph: CognitiveGraph, harness: Harness) -> CognitiveGra
             and harness.frontier_config.enabled
             and harness.frontier_config.plan_at_start):
         world_model = graph.memory_snapshot.get("world_model", {})
-        frontier_plan = await harness.frontier.plan_root(graph.state.objective, world_model)
+        try:
+            frontier_plan = await harness.frontier.plan_root(graph.state.objective, world_model)
+        except Exception as exc:
+            harness.audit.record("frontier_fallback", graph_id=graph.id,
+                                 phase="plan", error=str(exc))
+            frontier_plan = None
         if frontier_plan:
             harness.audit.record("frontier_plan", graph_id=graph.id,
                                  strategy=frontier_plan.strategy,
