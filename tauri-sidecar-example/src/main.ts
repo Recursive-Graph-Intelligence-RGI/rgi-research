@@ -9,6 +9,7 @@ const objectiveEl = document.getElementById('objective') as HTMLInputElement
 const statusEl = document.getElementById('status') as HTMLDivElement
 const resultEl = document.getElementById('result') as HTMLPreElement
 const runBtn = document.getElementById('run-analysis') as HTMLButtonElement
+const scanBtn = document.getElementById('run-security-scan') as HTMLButtonElement
 
 function setStatus(msg: string) {
   statusEl.textContent = msg
@@ -29,6 +30,7 @@ document.getElementById('start-rgi')!.addEventListener('click', async () => {
     const result = await invoke('start_rgi')
     setStatus(`Engine started: ${JSON.stringify(result)}`)
     runBtn.disabled = !selectedPath
+    scanBtn.disabled = !selectedPath
   } catch (err) {
     setStatus(`Failed to start engine: ${err}`)
   }
@@ -40,6 +42,7 @@ document.getElementById('stop-rgi')!.addEventListener('click', async () => {
     await invoke('stop_rgi')
     setStatus('Engine stopped.')
     runBtn.disabled = true
+    scanBtn.disabled = true
   } catch (err) {
     setStatus(`Failed to stop engine: ${err}`)
   }
@@ -57,6 +60,18 @@ runBtn.addEventListener('click', async () => {
     pollJob(currentJobId)
   } catch (err) {
     setStatus(`Analysis failed: ${err}`)
+  }
+})
+
+scanBtn.addEventListener('click', async () => {
+  if (!selectedPath) return
+  try {
+    setStatus('Running security scan...')
+    const result = await invoke('security_scan', { path: selectedPath }) as { findings: unknown[]; count: number }
+    resultEl.textContent = JSON.stringify(result, null, 2)
+    setStatus(`Security scan complete: ${result.count} finding(s)`)
+  } catch (err) {
+    setStatus(`Security scan failed: ${err}`)
   }
 })
 

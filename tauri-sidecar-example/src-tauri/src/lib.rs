@@ -131,7 +131,12 @@ fn stop_rgi(state: State<RGIState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn analyze_repo(state: State<RGIState>, path: String, objective: String) -> Result<String, String> {
+fn analyze_repo(
+    state: State<RGIState>,
+    path: String,
+    objective: String,
+    mock: Option<bool>,
+) -> Result<String, String> {
     let target = PathBuf::from(&path);
     let governance = state.governance.lock().unwrap().clone();
     if !governance.path_allowed(&target) {
@@ -145,7 +150,7 @@ fn analyze_repo(state: State<RGIState>, path: String, objective: String) -> Resu
     let body = serde_json::json!({
         "path": path,
         "objective": objective,
-        "mock": true,
+        "mock": mock.unwrap_or(false),
     });
 
     let response = ureq::post(&url)
@@ -157,6 +162,63 @@ fn analyze_repo(state: State<RGIState>, path: String, objective: String) -> Resu
         .map_err(|e| format!("failed to parse analyze response: {}", e))?;
 
     Ok(data.job_id)
+}
+
+/// Register the folder with the RGI server as a project, then stream the
+/// deterministic security scan over SSE. Returns the raw findings JSON.
+#[tauri::command]
+fn security_scan(state: State<RGIState>, path: String) -> Result<serde_json::Value, String> {
+    let target = PathBuf::from(&path);
+    let governance = state.governance.lock().unwrap().clone();
+    if !governance.path_allowed(&target) {
+        return Err(format!(
+            "path {} is outside the allowed workspace {:?}",
+            path, governance.allowed_root
+        ));
+    }
+
+    let project_id = "tauri-project";
+    let base = rgi_url(&state, "");
+
+    // 1. Register the project with the server (project_path gives chat/scan a real root).
+    let register = ureq::post(&format!("{}/v1/projects/{}/snapshot", base, project_id))
+        .send_json(&serde_json::json!({
+            "version": "rgi-graph-snapshot-v1",
+            "project_id": project_id,
+            "project_path": path,
+            "nodes": [],
+            "edges": [],
+        }))
+        .map_err(|e| format!("project register failed: {}", e))?;
+    let _reg_status = register.status();
+
+    // 2. Stream the security scan. The response is SSE: data: {json}\n\n...
+    let scan = ureq::post(&format!(
+        "{}/v1/projects/{}/security-scan",
+        base, project_id
+    ))
+    .send_json(&serde_json::json!({}))
+    .map_err(|e| format!("security scan failed: {}", e))?;
+
+    let mut body = scan.into_string().map_err(|e| format!("read body failed: {}", e))?;
+    // Strip SSE framing into one concatenated JSON doc for the UI.
+    let mut findings: Vec<serde_json::Value> = Vec::new();
+    for line in body.lines() {
+        let line = line.trim();
+        if let Some(payload) = line.strip_prefix("data: ") {
+            if payload == "[DONE]" {
+                continue;
+            }
+            if let Ok(event) = serde_json::from_str::<serde_json::Value>(payload) {
+                if event.get("kind").and_then(|k| k.as_str()) == Some("securityFindings") {
+                    if let Some(fs) = event.get("findings").and_then(|f| f.as_array()) {
+                        findings.extend(fs.iter().cloned());
+                    }
+                }
+            }
+        }
+    }
+    Ok(serde_json::json!({ "findings": findings, "count": findings.len() }))
 }
 
 #[tauri::command]
@@ -199,6 +261,7 @@ pub fn run() {
             start_rgi,
             stop_rgi,
             analyze_repo,
+            security_scan,
             get_status,
             get_result,
         ])
