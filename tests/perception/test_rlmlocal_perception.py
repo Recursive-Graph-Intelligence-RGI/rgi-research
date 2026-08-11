@@ -1,6 +1,7 @@
 import pytest
 from pathlib import Path
 
+from rgi.artifacts import temp_cache
 from rgi.perception.rlmlocal_perception import RlmlocalPerceptionLayer
 
 
@@ -60,3 +61,35 @@ async def test_multi_language_world_model(tmp_path: Path):
         and graph.nodes[e.target].metadata.get("name") == "c"
         for e in import_edges
     )
+
+
+@pytest.mark.asyncio
+async def test_ingest_cached_is_o1_lookup(tmp_path: Path):
+    (tmp_path / "b.py").write_text("def helper():\n    pass\n")
+    (tmp_path / "a.py").write_text("from b import helper\n\ndef main():\n    helper()\n")
+    cache = temp_cache()
+    layer = RlmlocalPerceptionLayer()
+
+    g1 = await layer.ingest_codebase_cached(str(tmp_path), cache)
+    assert g1.memory_snapshot.get("artifact_cached") is False  # first build
+
+    g2 = await layer.ingest_codebase_cached(str(tmp_path), cache)
+    assert g2.memory_snapshot.get("artifact_cached") is True  # O(1) hit
+    assert len(g2.nodes) == len(g1.nodes) == 4
+    assert cache.layers() == ["world-model"]
+
+
+@pytest.mark.asyncio
+async def test_ingest_cached_recomputes_on_change(tmp_path: Path):
+    (tmp_path / "a.py").write_text("def main():\n    return 1\n")
+    cache = temp_cache()
+    layer = RlmlocalPerceptionLayer()
+
+    g1 = await layer.ingest_codebase_cached(str(tmp_path), cache)
+    assert g1.memory_snapshot.get("artifact_cached") is False
+
+    # Change the source → new inputs hash → recompute, not stale cache.
+    (tmp_path / "a.py").write_text("def main():\n    return 2\n\ndef extra():\n    pass\n")
+    g2 = await layer.ingest_codebase_cached(str(tmp_path), cache)
+    assert g2.memory_snapshot.get("artifact_cached") is False
+    assert len(g2.nodes) > len(g1.nodes)

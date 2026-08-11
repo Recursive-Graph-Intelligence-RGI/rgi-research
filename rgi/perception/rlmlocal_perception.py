@@ -6,6 +6,7 @@ methods, imports, and call edges extracted via tree-sitter.
 """
 from pathlib import Path
 
+from rgi.artifacts import ArtifactCache, content_hash, default_cache
 from rgi.core.models import (
     CognitiveEdge,
     CognitiveGraph,
@@ -21,6 +22,10 @@ from rgi.perception.rlmlocal_compat.import_graph import build_import_graph, sour
 from rgi.perception.rlmlocal_compat.language_packs import lang_family
 from rgi.perception.rlmlocal_compat.reference_graph import build_reference_graph
 from rgi.perception.rlmlocal_compat.structure_extractor import extract_structure
+
+# Producer version — bump when the extraction logic changes so cached graphs
+# rebuild instead of returning stale structure.
+PERCEPTION_PRODUCER = "rlmlocal_perception@1"
 
 
 class RlmlocalPerceptionLayer:
@@ -170,4 +175,35 @@ class RlmlocalPerceptionLayer:
                     )
                 )
 
+        return graph
+
+    async def ingest_codebase_cached(
+        self, path: str, cache: ArtifactCache | None = None
+    ) -> CognitiveGraph:
+        """Artifact-cached ingest: the world model is a pure producer of the
+        source files' content hash, so an unchanged codebase is an O(1) artifact
+        lookup instead of a full re-parse. Changing any source file changes the
+        inputs hash → recompute (freshness rule)."""
+        cache = cache or default_cache()
+        root = Path(path)
+        src_files = source_files(root)
+        inputs = {
+            "files": [str(p) for p in src_files],
+            "contents": [p.read_text(errors="replace") for p in src_files],
+        }
+        inputs_hash = content_hash(inputs)
+
+        cached = cache.get("world-model", inputs_hash)
+        if cached is not None:
+            graph = CognitiveGraph.model_validate(cached.data)
+            graph.memory_snapshot["artifact_cached"] = True
+            graph.memory_snapshot["artifact_producer"] = cached.producer
+            return graph
+
+        graph = await self.ingest_codebase(path)
+        cache.put(
+            "world-model", inputs_hash, graph.model_dump(mode="json"),
+            PERCEPTION_PRODUCER,
+        )
+        graph.memory_snapshot["artifact_cached"] = False
         return graph
