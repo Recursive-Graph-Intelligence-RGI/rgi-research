@@ -36,16 +36,24 @@ def _index_symbol_defs(structs: dict[Path, CodeStructure]) -> dict[str, list[dic
     return symbol_defs
 
 
+def _files_by_stem(structs: dict[Path, CodeStructure]) -> dict[str, Path]:
+    files_by_stem: dict[str, Path] = {}
+    for path in structs.keys():
+        files_by_stem.setdefault(path.stem, path)
+    return files_by_stem
+
+
 def build_call_graph(
     root: Path,
     structs: dict[Path, CodeStructure],
     symbol_defs: dict[str, list[dict]] | None = None,
 ) -> CallGraph:
-    """Build conservative file-level call edges.
+    """Build conservative file-level call edges across all supported languages.
 
     Resolution order for a callee:
       1. Dotted callee (``module.func``): the head resolves to a module file.
-      2. Bare symbol: must have exactly one definition, in a different file.
+      2. Rust ``crate::mod::func``: the module part resolves to a file stem.
+      3. Bare symbol: must have exactly one definition, in a different file.
 
     Args:
         root: The project root (used for relative path reporting).
@@ -58,10 +66,7 @@ def build_call_graph(
     if symbol_defs is None:
         symbol_defs = _index_symbol_defs(structs)
 
-    files_by_stem: dict[str, Path] = {}
-    for path in structs.keys():
-        if path.suffix == ".py":
-            files_by_stem[path.stem] = path
+    files_by_stem = _files_by_stem(structs)
 
     graph = CallGraph()
     seen: set[tuple] = set()
@@ -73,16 +78,24 @@ def build_call_graph(
                 continue
             target: Path | None = None
             symbol = callee
-            if "." in callee:
+
+            if callee.startswith("crate::"):
+                parts = callee.split("::")
+                if len(parts) >= 2:
+                    t = files_by_stem.get(parts[1])
+                    if t and t != path:
+                        target = t
+            elif "." in callee:
                 head = callee.split(".")[0]
                 t = files_by_stem.get(head)
                 if t and t != path:
                     target = t
-            if target is None:
+            else:
                 defs = symbol_defs.get(callee, [])
                 files = {d["file"] for d in defs}
                 if len(files) == 1 and str(path) not in files:
                     target = Path(next(iter(files)))
+
             if target is not None:
                 key = (str(path), str(target), symbol, call.get("line"))
                 if key not in seen:

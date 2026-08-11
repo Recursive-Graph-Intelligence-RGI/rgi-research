@@ -16,7 +16,8 @@ from rgi.core.models import (
     NodeType,
 )
 from rgi.perception.rlmlocal_compat.call_graph import build_call_graph
-from rgi.perception.rlmlocal_compat.import_graph import build_import_graph
+from rgi.perception.rlmlocal_compat.import_graph import build_import_graph, source_files
+from rgi.perception.rlmlocal_compat.language_packs import lang_family
 from rgi.perception.rlmlocal_compat.reference_graph import build_reference_graph
 from rgi.perception.rlmlocal_compat.structure_extractor import extract_structure
 
@@ -32,42 +33,45 @@ class RlmlocalPerceptionLayer:
             policy=GraphPolicy(auto_spawn=False, require_verification=False),
         )
 
-        py_files = sorted(p for p in root.rglob("*.py") if p.is_file())
-        structs = {p: extract_structure(p) for p in py_files}
+        src_files = source_files(root)
+        structs = {p: extract_structure(p) for p in src_files}
         import_graph = build_import_graph(root, structs)
         call_graph = build_call_graph(root, structs, import_graph.symbol_defs)
         reference_graph = build_reference_graph(root, structs)
 
         file_to_node: dict[Path, str] = {}
-        for py_file in py_files:
+        for src_file in src_files:
             node = CognitiveNode(
                 type=NodeType.MEMORY,
-                content=f"Module {py_file.stem} in {py_file.name}",
+                content=f"Module {src_file.stem} in {src_file.name}",
                 confidence=1.0,
                 parent_graph_id=graph.id,
                 metadata={
-                    "file": str(py_file),
-                    "name": py_file.stem,
+                    "file": str(src_file),
+                    "name": src_file.stem,
                     "entity_kind": "module",
+                    "language": lang_family(src_file.suffix) or "unknown",
                 },
             )
             graph.nodes[node.id] = node
-            file_to_node[py_file] = node.id
+            file_to_node[src_file] = node.id
 
-        for py_file, struct in structs.items():
-            module_node_id = file_to_node[py_file]
+        for src_file, struct in structs.items():
+            module_node_id = file_to_node[src_file]
+            language = lang_family(src_file.suffix) or "unknown"
 
             for fn in struct.functions:
                 node = CognitiveNode(
                     type=NodeType.MEMORY,
-                    content=f"Function {fn['name']} in {py_file.name}",
+                    content=f"Function {fn['name']} in {src_file.name}",
                     confidence=1.0,
                     parent_graph_id=graph.id,
                     metadata={
-                        "file": str(py_file),
+                        "file": str(src_file),
                         "name": fn["name"],
                         "entity_kind": "function",
                         "line": fn.get("line"),
+                        "language": language,
                     },
                 )
                 graph.nodes[node.id] = node
@@ -83,14 +87,15 @@ class RlmlocalPerceptionLayer:
             for cls in struct.classes:
                 node = CognitiveNode(
                     type=NodeType.MEMORY,
-                    content=f"Class {cls['name']} in {py_file.name}",
+                    content=f"Class {cls['name']} in {src_file.name}",
                     confidence=1.0,
                     parent_graph_id=graph.id,
                     metadata={
-                        "file": str(py_file),
+                        "file": str(src_file),
                         "name": cls["name"],
                         "entity_kind": "class",
                         "line": cls.get("line"),
+                        "language": language,
                     },
                 )
                 graph.nodes[node.id] = node

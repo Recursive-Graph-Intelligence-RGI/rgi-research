@@ -138,7 +138,15 @@ def _extract_js(tree: Tree, source: bytes) -> CodeStructure:
         return None
 
     def walk(node: Node) -> None:
-        if node.parent == root:
+        # Top-level declarations, including export-wrapped ones (export function
+        # x() {} has parent export_statement, not program).
+        parent = node.parent
+        at_top = parent == root or (
+            parent is not None
+            and parent.type == "export_statement"
+            and parent.parent == root
+        )
+        if at_top:
             if node.type in ("function_declaration", "function_expression", "arrow_function"):
                 name = _name(node)
                 if name:
@@ -169,11 +177,15 @@ def _extract_js(tree: Tree, source: bytes) -> CodeStructure:
                                     })
 
         if node.type == "import_statement":
+            # Child order varies: [import, import_clause, from, string] or
+            # [import, string, from, import_clause]. Resolve the source first
+            # so the clause branch can attach it.
             source_value = None
             for child in node.children:
                 if child.type == "string":
                     source_value = _node_text(child, source).strip("'\"")
-                elif child.type == "import_clause":
+            for child in node.children:
+                if child.type == "import_clause":
                     for sub in child.children:
                         if sub.type == "identifier":
                             struct.imports.append({
