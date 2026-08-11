@@ -78,7 +78,7 @@ Objective + World Model
 | # | Point | Input | Output | Trigger |
 |---|-------|-------|--------|---------|
 | 1 | **Plan** | objective, world model, target metadata | root strategy, initial subgraph objectives | always at run start if frontier enabled |
-| 2 | **Arbitrate** | merged findings, contradictions, stalled confidence | resolution: respawn, merge, escalate, or drop | only when local convergence fails |
+| 2 | **Arbitrate** | merged findings, contradictions, stalled confidence | resolution: respawn, drop, or noop | only when local convergence fails |
 | 3 | **Synthesize** | converged graph + all grounded findings | final report with ranked findings | always at run end if frontier enabled |
 
 ### 3.3 Local-First Default
@@ -171,11 +171,10 @@ class PlanResult(BaseModel):
 
 ```python
 class ArbitrationResult(BaseModel):
-    decision: Literal["respawn", "merge", "drop", "escalate"]
+    decision: Literal["respawn", "drop", "noop"]
     reasoning: str
     spawn_objectives: list[str] = []
     findings_to_drop: list[str] = []
-    escalate_to_user: bool = False
 ```
 
 ### 5.3 Synthesis Result
