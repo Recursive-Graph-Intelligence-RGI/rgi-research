@@ -51,11 +51,20 @@ class FrontierConfig:
 class FrontierIntegration:
     def __init__(self, config: FrontierConfig, llm_client: Any = None):
         self.config = config
-        self.llm_client = llm_client or LLMClient(
-            model=config.model,
-            base_url=config.base_url,
-            api_key=config.api_key,
-        )
+        # provider='edge' → Cloudflare /infer contract (rlmlocal's edge model);
+        # anything else → OpenAI-compatible chat completions (kimi default).
+        if llm_client is None:
+            provider = "edge" if config.provider == "edge" else "openai"
+            kwargs: dict[str, Any] = {
+                "model": config.model,
+                "base_url": config.base_url,
+                "api_key": config.api_key,
+            }
+            if provider != "openai":  # only pass provider when non-default (injected fakes keep old sig)
+                kwargs["provider"] = provider
+            self.llm_client = LLMClient(**kwargs)
+        else:
+            self.llm_client = llm_client
 
     async def plan_root(self, objective: str, world_model: dict[str, Any]) -> PlanResult | None:
         if not self.config.enabled or not self.config.plan_at_start:

@@ -136,6 +136,11 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     if frontier_provider in ("ollama",):
         os.environ.setdefault("RGI_FRONTIER_BASE_URL", "http://localhost:11434/v1")
         os.environ.setdefault("RGI_FRONTIER_API_KEY", "ollama")
+    if frontier_provider == "edge":
+        # Cloudflare edge (rlmlocal's CF provider): base_url = worker URL
+        # (no /v1 suffix), api_key = the owner key, model = CF model id.
+        os.environ.setdefault("RGI_FRONTIER_MODEL", "@cf/qwen/qwen3-30b-a3b-fp8")
+        os.environ.setdefault("RGI_FRONTIER_BASE_URL", "https://rlmlocal-mcp.fortsignal.workers.dev")
     frontier_config = FrontierConfig(
         enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").strip().lower() in ("1", "true", "yes"),
         provider=frontier_provider,

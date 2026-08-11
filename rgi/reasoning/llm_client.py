@@ -134,10 +134,17 @@ class MockLLMClient:
 class LLMClient:
     """OpenAI-compatible chat completions with JSON mode. Configure by env:
     RGI_LLM_BASE_URL, RGI_LLM_API_KEY, RGI_LLM_MODEL. The 'kimi' preset is the
-    default; any OpenAI-compatible endpoint works via env vars."""
+    default; any OpenAI-compatible endpoint works via env vars.
+
+    provider='edge' switches to the Cloudflare edge /infer contract used by
+    rlmlocal's CloudflareAIProvider: base_url = the worker URL (no /v1 suffix),
+    api_key = the owner key, sent as X-RLM-Owner-Key + body ownerKey, with the
+    CF-specific body fields (output_mode, chat_template_kwargs)."""
 
     def __init__(self, base_url: Optional[str] = None, api_key: Optional[str] = None,
-                 model: Optional[str] = None, on_call: Optional[Callable] = None):
+                 model: Optional[str] = None, on_call: Optional[Callable] = None,
+                 provider: str = "openai"):
+        self.provider = provider
         self.base_url = (base_url or os.environ.get("RGI_LLM_BASE_URL")
                          or "https://api.moonshot.ai/v1").rstrip("/")
         self.api_key = api_key or os.environ.get("RGI_LLM_API_KEY", "")
@@ -162,15 +169,23 @@ class LLMClient:
                 {"role": "user", "content": f"CONTEXT:\n{context}\n\nTASK:\n{task}"},
             ],
         }
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            headers = {}
+        headers: dict[str, str] = {}
+        if self.provider == "edge":
+            # Cloudflare edge /infer: owner key as header + body field, and the
+            # CF-specific envelope (same shape rlmlocal's CloudflareAIProvider uses).
+            url = f"{self.base_url}/infer"
+            if self.api_key:
+                headers["X-RLM-Owner-Key"] = self.api_key
+            payload["ownerKey"] = self.api_key
+            payload["max_tokens"] = int(os.environ.get("RGI_FRONTIER_MAX_TOKENS", "2048"))
+            payload["output_mode"] = "chat"
+            payload["chat_template_kwargs"] = {"enable_thinking": False}
+        else:
+            url = f"{self.base_url}/chat/completions"
             if self.api_key:
                 headers["Authorization"] = f"Bearer {self.api_key}"
-            resp = await client.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-            )
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            resp = await client.post(url, headers=headers, json=payload)
             resp.raise_for_status()
             body = resp.json()
             usage = body.get("usage") or {}

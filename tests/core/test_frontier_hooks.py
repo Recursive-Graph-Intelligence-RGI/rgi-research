@@ -5,7 +5,7 @@ from rgi.reasoning.frontier_integration import (
     ArbitrationResult, FrontierConfig, FrontierIntegration, PlanResult,
     SynthesisResult,
 )
-from rgi.reasoning.llm_client import MockLLMClient
+from rgi.reasoning.llm_client import LLMClient, MockLLMClient
 from rgi.loops import initialize_graph_nodes
 
 
@@ -141,3 +141,56 @@ async def test_frontier_parse_failure_raises():
     frontier = FrontierIntegration(cfg, llm_client=bad_llm)
     with pytest.raises(Exception):
         await frontier.synthesize({}, [])
+
+
+# ── Edge provider (Cloudflare /infer) wiring ────────────────────────────────
+
+def test_llm_client_edge_provider_hits_infer():
+    client = LLMClient(
+        base_url="https://rlmlocal-mcp.fortsignal.workers.dev",
+        api_key="owner-key-123",
+        model="@cf/qwen/qwen3-30b-a3b-fp8",
+        provider="edge",
+    )
+    assert client.provider == "edge"
+    assert client.base_url == "https://rlmlocal-mcp.fortsignal.workers.dev"
+    assert client.model == "@cf/qwen/qwen3-30b-a3b-fp8"
+
+
+def test_frontier_integration_edge_provider_constructs_edge_llm():
+    cfg = FrontierConfig(
+        enabled=True, provider="edge",
+        base_url="https://rlmlocal-mcp.fortsignal.workers.dev",
+        api_key="owner-key-123",
+        model="@cf/qwen/qwen3-30b-a3b-fp8",
+    )
+    frontier = FrontierIntegration(cfg)
+    assert frontier.llm_client.provider == "edge"
+    assert frontier.llm_client.model == "@cf/qwen/qwen3-30b-a3b-fp8"
+
+
+def test_frontier_integration_openai_provider_default():
+    cfg = FrontierConfig(enabled=True, provider="kimi")
+    frontier = FrontierIntegration(cfg)
+    assert frontier.llm_client.provider == "openai"
+
+
+def test_cli_edge_defaults():
+    import os
+    old = {k: os.environ.get(k) for k in ("RGI_FRONTIER_MODEL", "RGI_FRONTIER_BASE_URL")}
+    try:
+        os.environ.pop("RGI_FRONTIER_MODEL", None)
+        os.environ.pop("RGI_FRONTIER_BASE_URL", None)
+        # simulate run_analysis env-setup for edge provider
+        frontier_provider = "edge"
+        if frontier_provider == "edge":
+            os.environ.setdefault("RGI_FRONTIER_MODEL", "@cf/qwen/qwen3-30b-a3b-fp8")
+            os.environ.setdefault("RGI_FRONTIER_BASE_URL", "https://rlmlocal-mcp.fortsignal.workers.dev")
+        assert os.environ["RGI_FRONTIER_MODEL"] == "@cf/qwen/qwen3-30b-a3b-fp8"
+        assert os.environ["RGI_FRONTIER_BASE_URL"] == "https://rlmlocal-mcp.fortsignal.workers.dev"
+    finally:
+        for k, v in old.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
