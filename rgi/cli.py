@@ -17,6 +17,7 @@ from rgi.core.models import CognitiveGraph, CognitiveNode, GraphPolicy, GraphSta
 from rgi.loops import initialize_graph_nodes
 from rgi.perception.code_parser import PerceptionLayer
 from rgi.perception.rlmlocal_perception import RlmlocalPerceptionLayer
+from rgi.reasoning.frontier_integration import FrontierConfig
 from rgi.reasoning.llm_client import LLMClient, MockLLMClient
 
 
@@ -129,12 +130,19 @@ async def run_analysis(path, objective, output, mock, provider, model, max_llm_c
     if is_local_provider and not os.environ.get("RGI_LLM_API_KEY"):
         os.environ.setdefault("RGI_LLM_API_KEY", "ollama")
     llm = MockLLMClient() if use_mock else LLMClient(model=model)
+    frontier_config = FrontierConfig(
+        enabled=os.environ.get("RGI_FRONTIER_ENABLED", "").lower() in ("1", "true", "yes"),
+        provider=provider,
+        model=model,
+        max_arbitration_calls=int(os.environ.get("RGI_FRONTIER_MAX_ARBITRATION", "2")),
+    )
     config = HarnessConfig(target_path=path, max_llm_calls=max_llm_calls,
                            max_total_nodes=max_total_nodes,
                            # Local models blow past the 300s demo limit; RGI_MAX_SECONDS
                            # raises it for benchmarking without weakening the default.
                            max_seconds=int(os.environ.get("RGI_MAX_SECONDS", "300")),
-                           llm_client=llm, data_dir=str(data_dir))
+                           llm_client=llm, data_dir=str(data_dir),
+                           frontier_config=frontier_config)
     if embed or os.environ.get("RGI_EMBED_BASE_URL"):
         from rgi.memory.activation import EmbeddingActivationEngine
         from rgi.reasoning.embeddings import OpenAICompatibleEmbeddings

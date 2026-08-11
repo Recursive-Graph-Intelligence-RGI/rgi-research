@@ -1,5 +1,17 @@
 import json
 from rgi.cli import main
+from rgi.reasoning.frontier_integration import FrontierConfig
+
+
+def test_frontier_config_from_env_values():
+    cfg = FrontierConfig(
+        enabled=True,
+        model="kimi-k2",
+        max_arbitration_calls=2,
+    )
+    assert cfg.enabled
+    assert cfg.model == "kimi-k2"
+    assert cfg.max_arbitration_calls == 2
 
 
 def test_e2e_mock_run(tmp_path, capsys):
